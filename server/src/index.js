@@ -1,0 +1,180 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { pool } from "./db.js";
+import { computeMatches } from "./matching.js";
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:5173").split(",");
+
+app.use(cors({ origin: ALLOWED_ORIGINS }));
+app.use(express.json({ limit: "5mb" }));
+
+function matchKey(name) {
+  return String(name || "").trim().split("//")[0].trim().toLowerCase();
+}
+
+// --- Friends ---
+
+app.get("/api/friends", async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT f.id, f.name,
+        COALESCE(c.cnt, 0)::int AS collection_count,
+        COALESCE(w.cnt, 0)::int AS wishlist_count
+      FROM friends f
+      LEFT JOIN (SELECT friend_id, COUNT(*) cnt FROM collection_cards GROUP BY friend_id) c ON c.friend_id = f.id
+      LEFT JOIN (SELECT friend_id, COUNT(*) cnt FROM wishlist_cards GROUP BY friend_id) w ON w.friend_id = f.id
+      ORDER BY f.name ASC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not load friends." });
+  }
+});
+
+app.post("/api/friends", async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  if (!name) return res.status(400).json({ error: "Name is required." });
+  try {
+    const existing = await pool.query("SELECT id, name FROM friends WHERE name = $1", [name]);
+    if (existing.rows.length) return res.json(existing.rows[0]);
+    const { rows } = await pool.query("INSERT INTO friends (name) VALUES ($1) RETURNING id, name", [name]);
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not create trader." });
+  }
+});
+
+app.delete("/api/friends/:id", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM friends WHERE id = $1", [req.params.id]);
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not remove trader." });
+  }
+});
+
+// --- Cards (collection / wishlist) ---
+
+async function getCards(table, friendId) {
+  const { rows } = await pool.query(
+    `SELECT id, card_name, match_key, qty FROM ${table} WHERE friend_id = $1 ORDER BY card_name ASC`,
+    [friendId]
+  );
+  return rows;
+}
+
+app.get("/api/friends/:id", async (req, res) => {
+  try {
+    const friend = await pool.query("SELECT id, name FROM friends WHERE id = $1", [req.params.id]);
+    if (!friend.rows.length) return res.status(404).json({ error: "Trader not found." });
+    const collection = await getCards("collection_cards", req.params.id);
+    const wishlist = await getCards("wishlist_cards", req.params.id);
+    res.json({ ...friend.rows[0], collection, wishlist });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not load trader." });
+  }
+});
+
+// Replace an entire list (used for CSV import/replace and bulk save from the editor)
+async function replaceList(table, friendId, cards) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`DELETE FROM ${table} WHERE friend_id = $1`, [friendId]);
+
+    const cleaned = cards
+      .map((c) => ({
+        cardName: String(c.cardName || "").trim(),
+        qty: Number.isFinite(parseInt(c.qty, 10)) && c.qty > 0 ? parseInt(c.qty, 10) : 1,
+      }))
+      .filter((c) => c.cardName);
+
+    // Insert in one multi-row statement (chunked to stay well under Postgres's
+    // parameter limit) instead of one round-trip per card — much faster for
+    // large collections, especially over a pooled connection.
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < cleaned.length; i += CHUNK_SIZE) {
+      const chunk = cleaned.slice(i, i + CHUNK_SIZE);
+      const values = [];
+      const placeholders = chunk.map((c, idx) => {
+        const base = idx * 4;
+        values.push(friendId, c.cardName, matchKey(c.cardName), c.qty);
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
+      });
+      await client.query(
+        `INSERT INTO ${table} (friend_id, card_name, match_key, qty) VALUES ${placeholders.join(", ")}`,
+        values
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+app.put("/api/friends/:id/collection", async (req, res) => {
+  try {
+    await replaceList("collection_cards", req.params.id, req.body.cards || []);
+    res.json(await getCards("collection_cards", req.params.id));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not save collection." });
+  }
+});
+
+app.put("/api/friends/:id/wishlist", async (req, res) => {
+  try {
+    await replaceList("wishlist_cards", req.params.id, req.body.cards || []);
+    res.json(await getCards("wishlist_cards", req.params.id));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not save wishlist." });
+  }
+});
+
+// --- Matches ---
+
+app.get("/api/matches", async (req, res) => {
+  try {
+    const [friendsRes, collRes, wishRes] = await Promise.all([
+      pool.query("SELECT id, name FROM friends"),
+      pool.query("SELECT friend_id, card_name, match_key, qty FROM collection_cards"),
+      pool.query("SELECT friend_id, card_name, match_key, qty FROM wishlist_cards"),
+    ]);
+
+    const friendsData = {};
+    for (const f of friendsRes.rows) {
+      friendsData[f.id] = { name: f.name, collection: [], wishlist: [] };
+    }
+    for (const row of collRes.rows) {
+      if (friendsData[row.friend_id]) friendsData[row.friend_id].collection.push(row);
+    }
+    for (const row of wishRes.rows) {
+      if (friendsData[row.friend_id]) friendsData[row.friend_id].wishlist.push(row);
+    }
+
+    res.json(computeMatches(friendsData));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not compute matches." });
+  }
+});
+
+app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+app.listen(PORT, () => {
+  console.log(`MTG trade API listening on http://localhost:${PORT}`);
+});
