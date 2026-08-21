@@ -74,15 +74,43 @@ proxies `/api` requests to your local Express server automatically.
 
 ## Deploying so friends can access it over the internet
 
-- **Frontend:** `cd client && npm run build`, then deploy the `dist/`
-  folder to Vercel or Netlify (drag-and-drop or connect a GitHub repo).
-  Set the environment variable `VITE_API_URL` to your deployed backend's
-  URL before building.
-- **Backend:** deploy the `server/` folder to Railway, Render, or Fly.io
-  (all have free tiers). Set `DATABASE_URL` and `ALLOWED_ORIGINS`
-  (your frontend's deployed URL) as environment variables there.
-- Your Supabase/Neon database is already internet-accessible, so no
-  extra step is needed for it.
+Order matters here: deploy the backend first so you have its URL to give
+the frontend.
+
+1. **Push your project to GitHub.** Railway, Render, Vercel, and Netlify
+   all deploy from a Git repo. From the project root:
+   `git init`, `git add .`, `git commit -m "initial commit"`, then follow
+   GitHub's instructions to create a repo and push. The whole
+   `mtg-trade-fullstack` folder can live in one repo — both `server` and
+   `client` deploy from subfolders of it.
+
+2. **Deploy the backend.** Sign up at railway.app (or render.com — similar
+   flow), create a new project, choose "Deploy from GitHub repo," and set
+   the **root directory** to `server`.
+
+3. **Set backend environment variables** in the platform's dashboard:
+   - `DATABASE_URL` — your Supabase Session pooler string (same as local `.env`)
+   - `ALLOWED_ORIGINS` — leave a placeholder for now, you'll update it in step 5
+
+4. **Copy the backend's public URL** once it's deployed (e.g.
+   `mtg-trade-server-production.up.railway.app`).
+
+5. **Deploy the frontend to Vercel.** Import the same GitHub repo, set the
+   root directory to `client`, and add an environment variable
+   `VITE_API_URL` set to your backend's URL from step 4 (include `https://`,
+   no trailing slash). Deploy.
+
+6. **Update `ALLOWED_ORIGINS`** on the backend to your new Vercel URL (e.g.
+   `mtg-trade-ledger.vercel.app`) and redeploy the backend. This is what
+   lets your deployed frontend actually talk to your backend — without it,
+   requests get blocked by CORS.
+
+7. **Test it.** Open the Vercel URL, join with a name, confirm the roster
+   loads. Share that URL with friends — they can use it from anywhere, and
+   it stays running even when your computer is off.
+
+Your Supabase database is already internet-accessible from step 1 of the
+main setup, so no extra step is needed for it.
 
 ## Notes
 
