@@ -175,6 +175,15 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [viewMode, setViewMode] = useState("pair");
   const [selectedFriendName, setSelectedFriendName] = useState(null);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   async function refreshFriends() {
     setLoadingFriends(true);
@@ -251,34 +260,85 @@ function MainApp({ identity, onSwitchIdentity }) {
         ::placeholder { color: ${COLORS.parchmentDim}; opacity: 0.6; }
       `}</style>
 
-      <header style={{ padding: "20px 28px", borderBottom: `1px solid ${COLORS.hair}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 11, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 2 }}>Trade Ledger</div>
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 26, margin: 0 }}>Group Binder Exchange</h1>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ fontSize: 12, color: COLORS.parchmentDim }}>
-            Signed in as <span style={{ color: COLORS.parchment, fontWeight: 500 }}>{identity.name}</span>
+      <header style={{ padding: isMobile ? "14px 16px" : "20px 28px", borderBottom: `1px solid ${COLORS.hair}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          {isMobile && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "6px 8px", cursor: "pointer", flexShrink: 0 }}
+            >
+              <Users size={16} />
+            </button>
+          )}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 2 }}>Trade Ledger</div>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: isMobile ? 18 : 26, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {isMobile ? "Binder Exchange" : "Group Binder Exchange"}
+            </h1>
           </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, flexShrink: 0 }}>
+          {!isMobile && (
+            <div style={{ fontSize: 12, color: COLORS.parchmentDim }}>
+              Signed in as <span style={{ color: COLORS.parchment, fontWeight: 500 }}>{identity.name}</span>
+            </div>
+          )}
           <button onClick={onSwitchIdentity} style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "6px 10px", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
-            <LogOut size={12} /> Switch
+            <LogOut size={12} /> {isMobile ? identity.name : "Switch"}
           </button>
         </div>
       </header>
 
       {error && (
-        <div style={{ background: "rgba(217,115,106,0.12)", color: "#D9736A", padding: "8px 28px", fontSize: 12 }}>{error}</div>
+        <div style={{ background: "rgba(217,115,106,0.12)", color: "#D9736A", padding: isMobile ? "8px 16px" : "8px 28px", fontSize: 12 }}>{error}</div>
       )}
 
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <aside style={{ width: 320, borderRight: `1px solid ${COLORS.hair}`, padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0, position: "relative" }}>
+        {isMobile && sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 40 }}
+          />
+        )}
+
+        <aside
+          style={
+            isMobile
+              ? {
+                  position: "fixed",
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  width: "85%",
+                  maxWidth: 320,
+                  background: COLORS.ink,
+                  borderRight: `1px solid ${COLORS.hair}`,
+                  padding: 20,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  zIndex: 50,
+                  overflowY: "auto",
+                  transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+                  transition: "transform 0.2s ease",
+                }
+              : { width: 320, borderRight: `1px solid ${COLORS.hair}`, padding: 20, display: "flex", flexDirection: "column", gap: 10 }
+          }
+        >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: COLORS.parchmentDim, display: "flex", alignItems: "center", gap: 6 }}>
               <Users size={13} /> Roster
             </div>
-            <button onClick={refreshFriends} title="Refresh" style={{ background: "none", border: "none", color: COLORS.parchmentDim, cursor: "pointer", padding: 2 }}>
-              <RefreshCw size={13} />
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={refreshFriends} title="Refresh" style={{ background: "none", border: "none", color: COLORS.parchmentDim, cursor: "pointer", padding: 2 }}>
+                <RefreshCw size={13} />
+              </button>
+              {isMobile && (
+                <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", color: COLORS.parchmentDim, cursor: "pointer", padding: 2 }}>
+                  <X size={16} />
+                </button>
+              )}
+            </div>
           </div>
 
           {loadingFriends ? (
@@ -289,7 +349,10 @@ function MainApp({ identity, onSwitchIdentity }) {
             friends.map((f) => (
               <div
                 key={f.id}
-                onClick={() => setEditingFriendId(f.id)}
+                onClick={() => {
+                  setEditingFriendId(f.id);
+                  if (isMobile) setSidebarOpen(false);
+                }}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -328,7 +391,7 @@ function MainApp({ identity, onSwitchIdentity }) {
           </div>
         </aside>
 
-        <main style={{ flex: 1, padding: 28, overflow: "auto" }}>
+        <main style={{ flex: 1, padding: isMobile ? 16 : 28, overflow: "auto", minWidth: 0 }}>
           {editingFriend ? (
             <FriendEditor
               friend={editingFriend}
@@ -634,7 +697,8 @@ function AddCardForm({ onAdd }) {
 function MatchTable({ rows, peerLabel, peerKey, showBoth }) {
   if (!rows.length) return <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>None right now.</div>;
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+    <div style={{ overflowX: "auto" }}>
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 360 }}>
       <thead>
         <tr style={{ borderBottom: `1px solid ${COLORS.hair}` }}>
           <th style={thStyle}>Card</th>
@@ -659,6 +723,7 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
