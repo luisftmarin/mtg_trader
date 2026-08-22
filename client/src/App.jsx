@@ -380,27 +380,37 @@ function MainApp({ identity, onSwitchIdentity }) {
           ) : friends.length === 0 ? (
             <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>No traders yet.</div>
           ) : (
-            friends.map((f) => {
-              const isSelf = f.id === identity.id;
-              const canEdit = isSelf || identity.isAdmin;
-              return (
-                <div
-                  key={f.id}
-                  onClick={() => {
-                    if (!canEdit) return;
-                    setEditingFriendId(f.id);
-                    if (isMobile) setSidebarOpen(false);
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    background: editingFriendId === f.id ? COLORS.panelRaised : COLORS.panel,
-                    border: `1px solid ${editingFriendId === f.id ? COLORS.gold : COLORS.hair}`,
-                    borderRadius: 4,
-                    padding: "8px 10px",
-                    cursor: canEdit ? "pointer" : "default",
-                    opacity: canEdit ? 1 : 0.85,
+            friends.map((f) => (
+              <div
+                key={f.id}
+                onClick={() => {
+                  setEditingFriendId(f.id);
+                  if (isMobile) setSidebarOpen(false);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: editingFriendId === f.id ? COLORS.panelRaised : COLORS.panel,
+                  border: `1px solid ${editingFriendId === f.id ? COLORS.gold : COLORS.hair}`,
+                  borderRadius: 4,
+                  padding: "8px 10px",
+                  cursor: "pointer",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>
+                    {f.name}
+                    {f.id === identity.id && <span style={{ color: COLORS.gold, fontSize: 10, marginLeft: 6 }}>you</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
+                    {f.collection_count} coll · {f.wishlist_count} wish
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeFriend(f.id);
                   }}
                 >
                   <div>
