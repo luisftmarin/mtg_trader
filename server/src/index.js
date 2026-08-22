@@ -9,9 +9,30 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:5173").split(",");
 
-app.use(cors({ origin: ALLOWED_ORIGINS }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow non-browser requests (Postman, curl, server-to-server)
+    if (!origin) return callback(null, true);
+
+    const isExplicitlyAllowed = ALLOWED_ORIGINS.includes(origin);
+    const isVercelPreview = /^https:\/\/mtg-trader-.*-luisftmarins-projects\.vercel\.app$/.test(origin);
+
+    if (isExplicitlyAllowed || isVercelPreview) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true
+}));
+
+
+
+
+
 app.use(express.json({ limit: "5mb" }));
 
 function matchKey(name) {
