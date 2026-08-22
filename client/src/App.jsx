@@ -22,6 +22,7 @@ const PLATFORM_MAPPINGS = {
 };
 
 const IDENTITY_KEY = "mtg-trade-ledger:identity";
+const TOKEN_KEY = "mtg-trade-ledger:token";
 
 function matchKey(name) {
   return String(name || "").trim().split("//")[0].trim().toLowerCase();
@@ -54,17 +55,23 @@ export default function App() {
   const [identity, setIdentity] = useState(() => {
     try {
       const raw = window.localStorage.getItem(IDENTITY_KEY);
-      return raw ? JSON.parse(raw) : null;
+      const token = window.localStorage.getItem(TOKEN_KEY);
+      return raw && token ? JSON.parse(raw) : null;
     } catch {
       return null;
     }
   });
 
   if (!identity) {
-    return <IdentityGate onSet={(id) => {
-      window.localStorage.setItem(IDENTITY_KEY, JSON.stringify(id));
-      setIdentity(id);
-    }} />;
+    return (
+      <AuthGate
+        onSet={(friend, token) => {
+          window.localStorage.setItem(IDENTITY_KEY, JSON.stringify(friend));
+          window.localStorage.setItem(TOKEN_KEY, token);
+          setIdentity(friend);
+        }}
+      />
+    );
   }
 
   return (
@@ -72,95 +79,117 @@ export default function App() {
       identity={identity}
       onSwitchIdentity={() => {
         window.localStorage.removeItem(IDENTITY_KEY);
+        window.localStorage.removeItem(TOKEN_KEY);
         setIdentity(null);
       }}
     />
   );
 }
 
-function IdentityGate({ onSet }) {
-  const [friends, setFriends] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+function AuthGate({ onSet }) {
+  const [mode, setMode] = useState("login"); // "login" | "register"
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [adminCode, setAdminCode] = useState("");
+  const [showAdminCode, setShowAdminCode] = useState(false);
+  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    api
-      .listFriends()
-      .then(setFriends)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function pick(existing) {
+  async function submit(e) {
+    e.preventDefault();
+    if (!name.trim() || !password) return;
     setBusy(true);
     setError("");
     try {
-      const friend = existing || (await api.createFriend(name.trim()));
-      onSet({ id: friend.id, name: friend.name });
-    } catch (e) {
-      setError(e.message);
+      const result = mode === "login" ? await api.login(name.trim(), password) : await api.register(name.trim(), password, adminCode);
+      onSet(result.friend, result.token);
+    } catch (e2) {
+      setError(e2.message);
     }
     setBusy(false);
   }
 
   return (
     <div style={{ minHeight: "100vh", background: COLORS.ink, color: COLORS.parchment, fontFamily: "'Inter', sans-serif", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; } input, button { font-family: inherit; }`}</style>
       <div style={{ width: 380, border: `1px solid ${COLORS.hair}`, borderRadius: 8, padding: 28, background: COLORS.panel }}>
         <div style={{ fontSize: 11, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 6 }}>Trade Ledger</div>
-        <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 22, margin: "0 0 18px" }}>Who's trading?</h1>
+        <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 22, margin: "0 0 18px" }}>
+          {mode === "login" ? "Sign in" : "Create an account"}
+        </h1>
 
-        {loading ? (
-          <div style={{ fontSize: 13, color: COLORS.parchmentDim }}>Loading roster…</div>
-        ) : (
-          <>
-            {friends.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
-                {friends.map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => pick(f)}
-                    disabled={busy}
-                    style={{ textAlign: "left", background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "9px 12px", color: COLORS.parchment, fontSize: 13, cursor: "pointer" }}
-                  >
-                    {f.name}
-                    <span style={{ float: "right", fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
-                      {f.collection_count} coll · {f.wishlist_count} wish
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div style={{ fontSize: 11, color: COLORS.parchmentDim, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              Or join as someone new
-            </div>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (name.trim()) pick(null);
+        <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+          {[["login", "Sign in"], ["register", "Create account"]].map(([m, label]) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => {
+                setMode(m);
+                setError("");
               }}
-              style={{ display: "flex", gap: 8 }}
+              style={{
+                flex: 1,
+                padding: "7px 0",
+                fontSize: 12,
+                borderRadius: 4,
+                border: `1px solid ${mode === m ? COLORS.gold : COLORS.hair}`,
+                background: mode === m ? "rgba(201,162,39,0.12)" : "transparent",
+                color: mode === m ? COLORS.gold : COLORS.parchmentDim,
+                cursor: "pointer",
+              }}
             >
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                style={{ flex: 1, background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "8px 10px", color: COLORS.parchment, fontSize: 13 }}
-              />
-              <button
-                type="submit"
-                disabled={busy || !name.trim()}
-                style={{ background: COLORS.gold, border: "none", color: COLORS.ink, borderRadius: 4, padding: "8px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: busy ? 0.6 : 1 }}
-              >
-                Join
-              </button>
-            </form>
-            {error && <div style={{ fontSize: 12, color: "#D9736A", marginTop: 10 }}>{error}</div>}
-          </>
-        )}
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Your name"
+            autoComplete="username"
+            style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "9px 10px", color: COLORS.parchment, fontSize: 13 }}
+          />
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            type="password"
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "9px 10px", color: COLORS.parchment, fontSize: 13 }}
+          />
+          {mode === "register" && (
+            <>
+              <div style={{ fontSize: 11, color: COLORS.parchmentDim }}>At least 6 characters.</div>
+              {showAdminCode ? (
+                <input
+                  value={adminCode}
+                  onChange={(e) => setAdminCode(e.target.value)}
+                  placeholder="Admin code"
+                  type="password"
+                  style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "9px 10px", color: COLORS.parchment, fontSize: 13 }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowAdminCode(true)}
+                  style={{ background: "none", border: "none", color: COLORS.parchmentDim, fontSize: 11, textAlign: "left", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                >
+                  Have an admin code?
+                </button>
+              )}
+            </>
+          )}
+          {error && <div style={{ fontSize: 12, color: "#D9736A" }}>{error}</div>}
+          <button
+            type="submit"
+            disabled={busy || !name.trim() || !password}
+            style={{ background: COLORS.gold, border: "none", color: COLORS.ink, borderRadius: 4, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: busy ? 0.6 : 1, marginTop: 4 }}
+          >
+            {busy ? "…" : mode === "login" ? "Sign in" : "Create account"}
+          </button>
+        </form>
       </div>
     </div>
   );
@@ -175,6 +204,15 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [viewMode, setViewMode] = useState("pair");
   const [selectedFriendName, setSelectedFriendName] = useState(null);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   async function refreshFriends() {
     setLoadingFriends(true);
@@ -251,34 +289,90 @@ function MainApp({ identity, onSwitchIdentity }) {
         ::placeholder { color: ${COLORS.parchmentDim}; opacity: 0.6; }
       `}</style>
 
-      <header style={{ padding: "20px 28px", borderBottom: `1px solid ${COLORS.hair}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 11, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 2 }}>Trade Ledger</div>
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 26, margin: 0 }}>Group Binder Exchange</h1>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ fontSize: 12, color: COLORS.parchmentDim }}>
-            Signed in as <span style={{ color: COLORS.parchment, fontWeight: 500 }}>{identity.name}</span>
+      <header style={{ padding: isMobile ? "14px 16px" : "20px 28px", borderBottom: `1px solid ${COLORS.hair}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          {isMobile && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "6px 8px", cursor: "pointer", flexShrink: 0 }}
+            >
+              <Users size={16} />
+            </button>
+          )}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 2 }}>Trade Ledger</div>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: isMobile ? 18 : 26, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {isMobile ? "Binder Exchange" : "Group Binder Exchange"}
+            </h1>
           </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, flexShrink: 0 }}>
+          {!isMobile && (
+            <div style={{ fontSize: 12, color: COLORS.parchmentDim }}>
+              Signed in as <span style={{ color: COLORS.parchment, fontWeight: 500 }}>{identity.name}</span>
+              {identity.isAdmin && (
+                <span style={{ marginLeft: 8, fontSize: 10, color: COLORS.gold, border: `1px solid ${COLORS.gold}`, borderRadius: 3, padding: "1px 6px" }}>
+                  ADMIN
+                </span>
+              )}
+            </div>
+          )}
           <button onClick={onSwitchIdentity} style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "6px 10px", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
-            <LogOut size={12} /> Switch
+            <LogOut size={12} /> {isMobile ? identity.name : "Switch"}
           </button>
         </div>
       </header>
 
       {error && (
-        <div style={{ background: "rgba(217,115,106,0.12)", color: "#D9736A", padding: "8px 28px", fontSize: 12 }}>{error}</div>
+        <div style={{ background: "rgba(217,115,106,0.12)", color: "#D9736A", padding: isMobile ? "8px 16px" : "8px 28px", fontSize: 12 }}>{error}</div>
       )}
 
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <aside style={{ width: 320, borderRight: `1px solid ${COLORS.hair}`, padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0, position: "relative" }}>
+        {isMobile && sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 40 }}
+          />
+        )}
+
+        <aside
+          style={
+            isMobile
+              ? {
+                  position: "fixed",
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  width: "85%",
+                  maxWidth: 320,
+                  background: COLORS.ink,
+                  borderRight: `1px solid ${COLORS.hair}`,
+                  padding: 20,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  zIndex: 50,
+                  overflowY: "auto",
+                  transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+                  transition: "transform 0.2s ease",
+                }
+              : { width: 320, borderRight: `1px solid ${COLORS.hair}`, padding: 20, display: "flex", flexDirection: "column", gap: 10 }
+          }
+        >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: COLORS.parchmentDim, display: "flex", alignItems: "center", gap: 6 }}>
               <Users size={13} /> Roster
             </div>
-            <button onClick={refreshFriends} title="Refresh" style={{ background: "none", border: "none", color: COLORS.parchmentDim, cursor: "pointer", padding: 2 }}>
-              <RefreshCw size={13} />
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={refreshFriends} title="Refresh" style={{ background: "none", border: "none", color: COLORS.parchmentDim, cursor: "pointer", padding: 2 }}>
+                <RefreshCw size={13} />
+              </button>
+              {isMobile && (
+                <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", color: COLORS.parchmentDim, cursor: "pointer", padding: 2 }}>
+                  <X size={16} />
+                </button>
+              )}
+            </div>
           </div>
 
           {loadingFriends ? (
@@ -286,52 +380,65 @@ function MainApp({ identity, onSwitchIdentity }) {
           ) : friends.length === 0 ? (
             <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>No traders yet.</div>
           ) : (
-            friends.map((f) => (
-              <div
-                key={f.id}
-                onClick={() => setEditingFriendId(f.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  background: editingFriendId === f.id ? COLORS.panelRaised : COLORS.panel,
-                  border: `1px solid ${editingFriendId === f.id ? COLORS.gold : COLORS.hair}`,
-                  borderRadius: 4,
-                  padding: "8px 10px",
-                  cursor: "pointer",
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>
-                    {f.name}
-                    {f.id === identity.id && <span style={{ color: COLORS.gold, fontSize: 10, marginLeft: 6 }}>you</span>}
-                  </div>
-                  <div style={{ fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
-                    {f.collection_count} coll · {f.wishlist_count} wish
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeFriend(f.id);
+            friends.map((f) => {
+              const isSelf = f.id === identity.id;
+              const canEdit = isSelf || identity.isAdmin;
+              return (
+                <div
+                  key={f.id}
+                  onClick={() => {
+                    if (!canEdit) return;
+                    setEditingFriendId(f.id);
+                    if (isMobile) setSidebarOpen(false);
                   }}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.parchmentDim, padding: 4 }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    background: editingFriendId === f.id ? COLORS.panelRaised : COLORS.panel,
+                    border: `1px solid ${editingFriendId === f.id ? COLORS.gold : COLORS.hair}`,
+                    borderRadius: 4,
+                    padding: "8px 10px",
+                    cursor: canEdit ? "pointer" : "default",
+                    opacity: canEdit ? 1 : 0.85,
+                  }}
                 >
-                  <X size={14} />
-                </button>
-              </div>
-            ))
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>
+                      {f.name}
+                      {isSelf && <span style={{ color: COLORS.gold, fontSize: 10, marginLeft: 6 }}>you</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {f.collection_count} coll · {f.wishlist_count} wish
+                    </div>
+                  </div>
+                  {(isSelf || identity.isAdmin) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeFriend(f.id);
+                      }}
+                      title={isSelf ? "Delete my account" : "Remove this trader (admin)"}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.parchmentDim, padding: 4 }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              );
+            })
           )}
 
           <div style={{ fontSize: 11, color: COLORS.parchmentDim, marginTop: 6 }}>
-            New traders join from the sign-in screen — have them open this app's URL and enter their name.
+            New traders create their own account from the sign-in screen — have them open this app's URL. You can only edit your own collection and wishlist.
           </div>
         </aside>
 
-        <main style={{ flex: 1, padding: 28, overflow: "auto" }}>
+        <main style={{ flex: 1, padding: isMobile ? 16 : 28, overflow: "auto", minWidth: 0 }}>
           {editingFriend ? (
             <FriendEditor
               friend={editingFriend}
+              isAdminEditing={editingFriend.id !== identity.id}
               onClose={() => setEditingFriendId(null)}
               onSaved={() => {
                 refreshFriends();
@@ -432,7 +539,7 @@ function MainApp({ identity, onSwitchIdentity }) {
   );
 }
 
-function FriendEditor({ friend, onClose, onSaved, setError }) {
+function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
   const [loading, setLoading] = useState(true);
   const [collection, setCollection] = useState([]);
   const [wishlist, setWishlist] = useState([]);
@@ -503,7 +610,7 @@ function FriendEditor({ friend, onClose, onSaved, setError }) {
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isAdminEditing ? 6 : 20 }}>
         <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 20, margin: 0 }}>
           Editing <span style={{ color: COLORS.gold }}>{friend.name}</span>
         </h2>
@@ -516,6 +623,12 @@ function FriendEditor({ friend, onClose, onSaved, setError }) {
           </button>
         </div>
       </div>
+
+      {isAdminEditing && (
+        <div style={{ fontSize: 11, color: COLORS.gold, marginBottom: 14 }}>
+          You're editing this as an admin — {friend.name} didn't make this change themselves.
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
         <EditableSection
@@ -634,7 +747,8 @@ function AddCardForm({ onAdd }) {
 function MatchTable({ rows, peerLabel, peerKey, showBoth }) {
   if (!rows.length) return <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>None right now.</div>;
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+    <div style={{ overflowX: "auto" }}>
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 360 }}>
       <thead>
         <tr style={{ borderBottom: `1px solid ${COLORS.hair}` }}>
           <th style={thStyle}>Card</th>
@@ -659,6 +773,7 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 

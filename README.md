@@ -25,13 +25,15 @@ Either way you'll get something like:
 postgresql://user:password@host:5432/dbname?sslmode=require
 ```
 
-## 2. Run the migration
+## 2. Run the migrations
 
-Paste the contents of `server/migrations/001_init.sql` into:
-- Supabase: the SQL Editor tab, click Run.
+Paste the contents of `server/migrations/001_init.sql`, then
+`002_add_auth.sql`, then `003_add_admin.sql`, into:
+- Supabase: the SQL Editor tab, click Run (once per file, in order).
 - Neon: their SQL console, or `psql "<your connection string>" -f server/migrations/001_init.sql`
+  (repeat for each file, in order)
 
-This creates the `friends`, `collection_cards`, and `wishlist_cards` tables.
+This creates the core tables, adds password login, then adds an admin flag.
 
 ## 3. Set up the server
 
@@ -41,7 +43,14 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` and paste your connection string into `DATABASE_URL`.
+Edit `.env`:
+- Paste your connection string into `DATABASE_URL`.
+- Set `JWT_SECRET` to a long random string — you can generate one with:
+  `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
+- Optionally set `ADMIN_SIGNUP_CODE` to a secret phrase — anyone who enters
+  it while registering becomes an admin. Leave it blank to disable admin
+  signup entirely (you can still promote someone via SQL — see
+  `migrations/003_add_admin.sql`).
 
 ```
 npm run dev
@@ -114,10 +123,19 @@ main setup, so no extra step is needed for it.
 
 ## Notes
 
-- "Logging in" is just picking a name — there's no password, matching
-  what you asked for. Anyone with the app's URL can join and see the
-  shared roster.
-- Anyone can edit anyone's collection/wishlist right now (same as the
-  original single-operator tool, just shared over the network). If you
-  want to restrict editing to only your own lists later, that's a
-  small change to the API routes — just ask.
+- Accounts now use real passwords (hashed with bcrypt, never stored in
+  plain text) and a signed login token, instead of the earlier
+  "just pick a name" system.
+- Everyone can view the shared roster and calculate matches. Regular
+  traders can only edit their own collection and wishlist. Admins can
+  edit and delete any trader's data.
+- To create an admin: set `ADMIN_SIGNUP_CODE` on the server, then have
+  that person register with "Have an admin code?" on the sign-up form
+  and enter it. To promote someone already registered, run the SQL in
+  `migrations/003_add_admin.sql` directly against your database instead.
+- On Railway, don't forget to add `JWT_SECRET` (and `ADMIN_SIGNUP_CODE`
+  if you're using it) alongside `DATABASE_URL` and `ALLOWED_ORIGINS` in
+  the service's Variables tab.
+- Any traders created before the auth update (under the old name-only
+  system) have no password on file and can't log in — they'll need to
+  register again with a password.

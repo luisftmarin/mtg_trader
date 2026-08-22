@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { pool } from "./db.js";
 import { computeMatches } from "./matching.js";
+import { hashPassword, verifyPassword, signToken, requireAuth } from "./auth.js";
 
 dotenv.config();
 
@@ -17,7 +18,52 @@ function matchKey(name) {
   return String(name || "").trim().split("//")[0].trim().toLowerCase();
 }
 
+// --- Auth ---
+
+app.post("/api/auth/register", async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const password = String(req.body.password || "");
+  const adminCode = String(req.body.adminCode || "");
+  if (!name || !password) return res.status(400).json({ error: "Name and password are required." });
+  if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters." });
+  const grantAdmin = !!process.env.ADMIN_SIGNUP_CODE && adminCode === process.env.ADMIN_SIGNUP_CODE;
+  try {
+    const existing = await pool.query("SELECT id FROM friends WHERE name = $1", [name]);
+    if (existing.rows.length) return res.status(409).json({ error: "That name is already taken." });
+    const hash = await hashPassword(password);
+    const { rows } = await pool.query(
+      "INSERT INTO friends (name, password_hash, is_admin) VALUES ($1, $2, $3) RETURNING id, name, is_admin",
+      [name, hash, grantAdmin]
+    );
+    const friend = rows[0];
+    res.status(201).json({ token: signToken(friend), friend: { id: friend.id, name: friend.name, isAdmin: friend.is_admin } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not create account." });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const password = String(req.body.password || "");
+  try {
+    const { rows } = await pool.query("SELECT id, name, password_hash, is_admin FROM friends WHERE name = $1", [name]);
+    const friend = rows[0];
+    if (!friend || !friend.password_hash) {
+      return res.status(401).json({ error: "Incorrect name or password." });
+    }
+    const ok = await verifyPassword(password, friend.password_hash);
+    if (!ok) return res.status(401).json({ error: "Incorrect name or password." });
+    res.json({ token: signToken(friend), friend: { id: friend.id, name: friend.name, isAdmin: friend.is_admin } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not sign in." });
+  }
+});
+
 // --- Friends ---
+// Viewing the roster and matches doesn't require auth (it's a shared board),
+// but every route below that changes data does.
 
 app.get("/api/friends", async (req, res) => {
   try {
@@ -37,21 +83,10 @@ app.get("/api/friends", async (req, res) => {
   }
 });
 
-app.post("/api/friends", async (req, res) => {
-  const name = String(req.body.name || "").trim();
-  if (!name) return res.status(400).json({ error: "Name is required." });
-  try {
-    const existing = await pool.query("SELECT id, name FROM friends WHERE name = $1", [name]);
-    if (existing.rows.length) return res.json(existing.rows[0]);
-    const { rows } = await pool.query("INSERT INTO friends (name) VALUES ($1) RETURNING id, name", [name]);
-    res.status(201).json(rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Could not create trader." });
+app.delete("/api/friends/:id", requireAuth, async (req, res) => {
+  if (String(req.user.id) !== String(req.params.id) && !req.user.isAdmin) {
+    return res.status(403).json({ error: "You can only remove your own account." });
   }
-});
-
-app.delete("/api/friends/:id", async (req, res) => {
   try {
     await pool.query("DELETE FROM friends WHERE id = $1", [req.params.id]);
     res.status(204).end();
@@ -125,7 +160,10 @@ async function replaceList(table, friendId, cards) {
   }
 }
 
-app.put("/api/friends/:id/collection", async (req, res) => {
+app.put("/api/friends/:id/collection", requireAuth, async (req, res) => {
+  if (String(req.user.id) !== String(req.params.id) && !req.user.isAdmin) {
+    return res.status(403).json({ error: "You can only edit your own collection." });
+  }
   try {
     await replaceList("collection_cards", req.params.id, req.body.cards || []);
     res.json(await getCards("collection_cards", req.params.id));
@@ -135,7 +173,10 @@ app.put("/api/friends/:id/collection", async (req, res) => {
   }
 });
 
-app.put("/api/friends/:id/wishlist", async (req, res) => {
+app.put("/api/friends/:id/wishlist", requireAuth, async (req, res) => {
+  if (String(req.user.id) !== String(req.params.id) && !req.user.isAdmin) {
+    return res.status(403).json({ error: "You can only edit your own wishlist." });
+  }
   try {
     await replaceList("wishlist_cards", req.params.id, req.body.cards || []);
     res.json(await getCards("wishlist_cards", req.params.id));
