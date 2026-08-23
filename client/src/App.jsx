@@ -19,6 +19,7 @@ const PLATFORM_MAPPINGS = {
   Archidekt: { card_name: ["Name", "Card Name"], qty: ["Quantity", "Qty", "Count"] },
   Moxfield: { card_name: ["Name", "Card Name"], qty: ["Count", "Quantity", "Qty"] },
   ManaBox: { card_name: ["Name", "Card Name"], qty: ["Quantity", "Qty", "Count"] },
+  "Names only": { card_name: ["Name", "Card Name"], qty: [] },
 };
 
 const IDENTITY_KEY = "mtg-trade-ledger:identity";
@@ -28,6 +29,23 @@ function matchKey(name) {
   return String(name || "").trim().split("//")[0].trim().toLowerCase();
 }
 
+function mergeCardRows(rows) {
+  const byKey = new Map();
+  const merged = [];
+  for (const row of rows) {
+    const key = matchKey(row.cardName);
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.qty += row.qty;
+    } else {
+      const entry = { cardName: row.cardName, qty: row.qty };
+      byKey.set(key, entry);
+      merged.push(entry);
+    }
+  }
+  return merged;
+}
+
 function parseCsvText(text, platform) {
   const result = Papa.parse(text, { header: true, skipEmptyLines: true });
   const fields = result.meta.fields || [];
@@ -35,13 +53,13 @@ function parseCsvText(text, platform) {
   const cardCol = mapping.card_name.find((c) => fields.includes(c));
   const qtyCol = mapping.qty.find((c) => fields.includes(c));
   if (!cardCol) throw new Error(`No card name column found. Expected one of: ${mapping.card_name.join(", ")}`);
-  if (!qtyCol) throw new Error(`No quantity column found. Expected one of: ${mapping.qty.join(", ")}`);
-  return result.data
+  const rows = result.data
     .filter((row) => row[cardCol])
     .map((row) => {
-      const q = parseInt(row[qtyCol], 10);
+      const q = qtyCol ? parseInt(row[qtyCol], 10) : 1;
       return { cardName: String(row[cardCol]).trim(), qty: Number.isFinite(q) && q > 0 ? q : 1 };
     });
+  return mergeCardRows(rows);
 }
 
 function pipFor(name) {
@@ -561,19 +579,8 @@ function MainApp({ identity, onSwitchIdentity }) {
 
           {editingFriend ? (
             <>
-              <FriendEditor
-                friend={editingFriend}
-                isAdminEditing={editingFriend.id !== identity.id}
-                onClose={() => setEditingFriendId(null)}
-                onSaved={() => {
-                  refreshFriends();
-                  setMatches(null);
-                  setEditingFriendId(null);
-                }}
-                setError={setError}
-              />
               {matches !== null && (
-                <div style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid ${COLORS.hair}` }}>
+                <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: `1px solid ${COLORS.hair}` }}>
                   <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                     {editingFriend.name}'s matches
                   </div>
@@ -589,6 +596,17 @@ function MainApp({ identity, onSwitchIdentity }) {
                   </div>
                 </div>
               )}
+              <FriendEditor
+                friend={editingFriend}
+                isAdminEditing={editingFriend.id !== identity.id}
+                onClose={() => setEditingFriendId(null)}
+                onSaved={() => {
+                  refreshFriends();
+                  setMatches(null);
+                  setEditingFriendId(null);
+                }}
+                setError={setError}
+              />
             </>
           ) : friends.length < 2 ? (
             <div style={{ border: `1px dashed ${COLORS.hair}`, borderRadius: 6, padding: 40, textAlign: "center", color: COLORS.parchmentDim, fontSize: 13 }}>
