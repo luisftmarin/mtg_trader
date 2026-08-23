@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { pool } from "./db.js";
 import { computeMatches } from "./matching.js";
 import { hashPassword, verifyPassword, signToken, requireAuth } from "./auth.js";
+import { importDeckFromUrl } from "./deckImport.js";
 
 dotenv.config();
 
@@ -264,6 +265,16 @@ app.put("/api/friends/:id/wishlist", requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Could not save wishlist." });
+  }
+});
+
+app.post("/api/import/deck", requireAuth, async (req, res) => {
+  try {
+    const result = await importDeckFromUrl(req.body.url);
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ error: err.message || "Could not import deck." });
   }
 });
 

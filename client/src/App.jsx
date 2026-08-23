@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Papa from "papaparse";
-import { Plus, X, Upload, ArrowRight, Download, Users, LogOut, RefreshCw, Key, Menu, Star, Search } from "lucide-react";
+import { Plus, X, Upload, ArrowRight, Download, Users, LogOut, RefreshCw, Key, Menu, Star, Search, Link2 } from "lucide-react";
 import { api } from "./api.js";
 
 const COLORS = {
@@ -94,6 +94,14 @@ function overlapKeysBetween(listA, listB) {
     if (keysB.has(key)) keys.add(key);
   }
   return keys;
+}
+
+function looksLikeDeckUrl(url) {
+  const trimmed = String(url || "").trim();
+  return (
+    /archidekt\.com\/decks\/\d+/i.test(trimmed) ||
+    /archidekt\.com\/collection(?:\/v2)?\/\d+/i.test(trimmed)
+  );
 }
 
 function sortPeerNames(names, priorityName) {
@@ -545,6 +553,15 @@ function MainApp({ identity, onSwitchIdentity }) {
     return overlapKeysBetween(wish, coll);
   }, [editingLists]);
 
+  const rosterFriends = useMemo(
+    () =>
+      [...friends].sort((a, b) => {
+        const byCount = (b.collection_count ?? 0) - (a.collection_count ?? 0);
+        return byCount !== 0 ? byCount : a.name.localeCompare(b.name);
+      }),
+    [friends]
+  );
+
   return (
     <div style={{ minHeight: "100vh", background: COLORS.ink, color: COLORS.parchment, fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column" }}>
       <style>{`
@@ -667,10 +684,10 @@ function MainApp({ identity, onSwitchIdentity }) {
 
           {loadingFriends ? (
             <div style={{ fontSize: 12, color: COLORS.parchmentDim }}>Loading…</div>
-          ) : friends.length === 0 ? (
+          ) : rosterFriends.length === 0 ? (
             <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>No traders yet.</div>
           ) : (
-            friends.map((f) => {
+            rosterFriends.map((f) => {
               const isSelf = f.id === identity.id;
               const canEdit = isSelf || identity.isAdmin;
               return (
@@ -1143,15 +1160,55 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
     });
   }
 
-  function removeRow(setList, i) {
-    setList((prev) => prev.filter((_, idx) => idx !== i));
+  function removeRowAt(list, i) {
+    return list.filter((_, idx) => idx !== i);
   }
 
-  function addRow(setList, cardName, qty) {
+  function addRow(list, cardName, qty) {
     const trimmed = cardName.trim();
-    if (!trimmed) return;
+    if (!trimmed) return list;
     const q = parseInt(qty, 10);
-    setList((prev) => [...prev, { cardName: trimmed, qty: Number.isFinite(q) && q > 0 ? q : 1 }]);
+    return [...list, { cardName: trimmed, qty: Number.isFinite(q) && q > 0 ? q : 1 }];
+  }
+
+  async function persistLists(coll, wish) {
+    setSaving(true);
+    setError("");
+    try {
+      const collRows = coll.filter((r) => r.cardName.trim());
+      const wishRows = wish.filter((r) => r.cardName.trim());
+      await api.replaceCollection(friend.id, collRows);
+      await api.replaceWishlist(friend.id, wishRows);
+      onListsChange?.({
+        collection: collRows.map((c) => ({ card_name: c.cardName, qty: c.qty })),
+        wishlist: wishRows.map((c) => ({ card_name: c.cardName, qty: c.qty })),
+      });
+      onSaved();
+    } catch (e) {
+      setError(e.message);
+    }
+    setSaving(false);
+  }
+
+  async function addRowAndSave(kind, cardName, qty) {
+    const nextCollection = kind === "collection" ? addRow(collection, cardName, qty) : collection;
+    const nextWishlist = kind === "wishlist" ? addRow(wishlist, cardName, qty) : wishlist;
+    if (nextCollection === collection && nextWishlist === wishlist) return;
+    setCollection(nextCollection);
+    setWishlist(nextWishlist);
+    await persistLists(nextCollection, nextWishlist);
+  }
+
+  async function removeRowAndSave(kind, i) {
+    const nextCollection = kind === "collection" ? removeRowAt(collection, i) : collection;
+    const nextWishlist = kind === "wishlist" ? removeRowAt(wishlist, i) : wishlist;
+    setCollection(nextCollection);
+    setWishlist(nextWishlist);
+    await persistLists(nextCollection, nextWishlist);
+  }
+
+  async function save() {
+    await persistLists(collection, wishlist);
   }
 
   async function replaceFromFile(kind, file, platform) {
@@ -1164,23 +1221,8 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
     }
   }
 
-  async function save() {
-    setSaving(true);
-    setError("");
-    try {
-      await api.replaceCollection(friend.id, collection.filter((r) => r.cardName.trim()));
-      await api.replaceWishlist(friend.id, wishlist.filter((r) => r.cardName.trim()));
-      const collRows = collection.filter((r) => r.cardName.trim());
-      const wishRows = wishlist.filter((r) => r.cardName.trim());
-      onListsChange?.({
-        collection: collRows.map((c) => ({ card_name: c.cardName, qty: c.qty })),
-        wishlist: wishRows.map((c) => ({ card_name: c.cardName, qty: c.qty })),
-      });
-      onSaved();
-    } catch (e) {
-      setError(e.message);
-    }
-    setSaving(false);
+  async function replaceFromDeckUrl(rows) {
+    setCollection(rows);
   }
 
   if (loading) return <div style={{ fontSize: 13, color: COLORS.parchmentDim }}>Loading {friend.name}'s lists…</div>;
@@ -1199,9 +1241,6 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onClose} style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "8px 16px", fontSize: 12, cursor: "pointer" }}>
             Cancel
-          </button>
-          <button onClick={save} disabled={saving} style={{ background: COLORS.gold, border: "none", color: COLORS.ink, borderRadius: 4, padding: "8px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Saving…" : "Save changes"}
           </button>
         </div>
       </div>
@@ -1255,8 +1294,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
         <div style={{ border: `1px dashed ${COLORS.hair}`, borderRadius: 6, padding: "16px 18px", marginBottom: 16, fontSize: 12, color: COLORS.parchmentDim, lineHeight: 1.6 }}>
           <div style={{ color: COLORS.parchment, fontWeight: 500, marginBottom: 8 }}>Getting started with {friend.name}'s lists</div>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
-            <li>Upload a CSV — use <strong style={{ color: COLORS.gold }}>Names only</strong> for Archidekt deck exports.</li>
-            <li>Or add cards one at a time — names autocomplete from Scryfall as you type.</li>
+            <li>Upload a CSV, paste an Archidekt deck/collection link, or add cards one at a time.</li>
             <li>Save when done, then calculate group matches from the main page.</li>
           </ul>
         </div>
@@ -1268,30 +1306,36 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
           rows={collection}
           overlapKeys={collectionOverlapKeys}
           onUpdateRow={(i, field, value) => updateRow(collection, setCollection, i, field, value)}
-          onRemoveRow={(i) => removeRow(setCollection, i)}
-          onAddRow={(name, qty) => addRow(setCollection, name, qty)}
+          onRemoveRow={(i) => removeRowAndSave("collection", i)}
+          onAddRow={(name, qty) => addRowAndSave("collection", name, qty)}
           onReplaceFile={(file) => replaceFromFile("collection", file, replacePlatform.collection)}
           platform={replacePlatform.collection}
           onPlatformChange={(p) => setReplacePlatform((prev) => ({ ...prev, collection: p }))}
+          showDeckLinkImport
+          onLoadDeckUrl={replaceFromDeckUrl}
+          setError={setError}
+          onSave={save}
+          saving={saving}
         />
         <EditableSection
           title="Wishlist"
           rows={wishlist}
           overlapKeys={wishlistOverlapKeys}
           onUpdateRow={(i, field, value) => updateRow(wishlist, setWishlist, i, field, value)}
-          onRemoveRow={(i) => removeRow(setWishlist, i)}
-          onAddRow={(name, qty) => addRow(setWishlist, name, qty)}
+          onRemoveRow={(i) => removeRowAndSave("wishlist", i)}
+          onAddRow={(name, qty) => addRowAndSave("wishlist", name, qty)}
           onReplaceFile={(file) => replaceFromFile("wishlist", file, replacePlatform.wishlist)}
           platform={replacePlatform.wishlist}
           onPlatformChange={(p) => setReplacePlatform((prev) => ({ ...prev, wishlist: p }))}
+          onSave={save}
+          saving={saving}
         />
       </div>
     </div>
   );
 }
 
-function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, onAddRow, onReplaceFile, platform, onPlatformChange }) {
-  const inputRef = useRef(null);
+function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, onAddRow, onReplaceFile, platform, onPlatformChange, showDeckLinkImport, onLoadDeckUrl, setError, onSave, saving }) {
   const [filter, setFilter] = useState("");
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -1301,34 +1345,12 @@ function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, o
   }, [rows, filter]);
 
   return (
-    <div style={{ flex: 1, minWidth: 320, border: `1px solid ${COLORS.hair}`, borderRadius: 6, overflow: "hidden" }}>
+    <div style={{ flex: 1, minWidth: 320, border: `1px solid ${COLORS.hair}`, borderRadius: 6 }}>
       <div style={{ background: COLORS.panel, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontFamily: "'Fraunces', serif", fontSize: 14 }}>{title}</span>
         <span style={{ fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
           {filter.trim() ? `${filtered.length} / ${rows.length}` : rows.length} cards
         </span>
-      </div>
-
-      <div style={{ padding: "10px 14px", display: "flex", gap: 6, alignItems: "center", borderBottom: `1px solid ${COLORS.hair}`, flexWrap: "wrap" }}>
-        <select value={platform} onChange={(e) => onPlatformChange(e.target.value)} style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "5px 6px", fontSize: 11 }}>
-          {Object.keys(PLATFORM_MAPPINGS).map((p) => (
-            <option key={p}>{p}</option>
-          ))}
-        </select>
-        <button onClick={() => inputRef.current?.click()} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: `1px dashed ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "5px 10px", fontSize: 11, cursor: "pointer" }}>
-          <Upload size={12} /> Replace with CSV
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".csv"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onReplaceFile(f);
-            e.target.value = "";
-          }}
-        />
       </div>
 
       <div style={{ padding: "8px 14px", borderBottom: `1px solid ${COLORS.hair}` }}>
@@ -1400,6 +1422,194 @@ function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, o
       </div>
 
       <AddCardForm onAdd={onAddRow} />
+
+      <ImportSection
+        platform={platform}
+        onPlatformChange={onPlatformChange}
+        onReplaceFile={onReplaceFile}
+        showDeckLinkImport={showDeckLinkImport}
+        onLoadDeckUrl={onLoadDeckUrl}
+        setError={setError}
+        onSave={onSave}
+        saving={saving}
+      />
+    </div>
+  );
+}
+
+function SaveChangesButton({ onSave, saving, style }) {
+  if (!onSave) return null;
+  return (
+    <button
+      type="button"
+      onClick={onSave}
+      disabled={saving}
+      style={{
+        background: COLORS.gold,
+        border: "none",
+        color: COLORS.ink,
+        borderRadius: 4,
+        padding: "6px 12px",
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: saving ? "not-allowed" : "pointer",
+        opacity: saving ? 0.6 : 1,
+        whiteSpace: "nowrap",
+        ...style,
+      }}
+    >
+      {saving ? "Saving…" : "Save changes"}
+    </button>
+  );
+}
+
+function ImportSection({ platform, onPlatformChange, onReplaceFile, showDeckLinkImport, onLoadDeckUrl, setError, onSave, saving }) {
+  const csvInputRef = useRef(null);
+
+  return (
+    <div style={{ borderTop: `1px solid ${COLORS.hair}`, padding: "10px 14px 12px", background: COLORS.panel }}>
+      <div style={{ fontSize: 11, color: COLORS.parchmentDim, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        Import
+      </div>
+
+      <div style={{ marginBottom: showDeckLinkImport ? 12 : 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: COLORS.parchmentDim, marginBottom: 8 }}>
+          <Upload size={12} color={COLORS.gold} />
+          Replace from CSV
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <select
+            value={platform}
+            onChange={(e) => onPlatformChange(e.target.value)}
+            style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "6px 8px", fontSize: 12 }}
+          >
+            {Object.keys(PLATFORM_MAPPINGS).map((p) => (
+              <option key={p}>{p}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => csvInputRef.current?.click()}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: "rgba(201,162,39,0.12)",
+              border: `1px solid ${COLORS.gold}`,
+              color: COLORS.gold,
+              borderRadius: 4,
+              padding: "6px 12px",
+              fontSize: 12,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <Upload size={12} /> Load CSV
+          </button>
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onReplaceFile(f);
+              e.target.value = "";
+            }}
+          />
+          <SaveChangesButton onSave={onSave} saving={saving} />
+        </div>
+      </div>
+
+      {showDeckLinkImport && (
+        <div style={{ borderTop: `1px solid ${COLORS.hair}`, paddingTop: 12 }}>
+          <DeckLinkImport onLoad={onLoadDeckUrl} setError={setError} embedded onSave={onSave} saving={saving} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeckLinkImport({ onLoad, setError, embedded, onSave, saving }) {
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [hint, setHint] = useState("");
+
+  async function loadFromUrl(rawUrl) {
+    const trimmed = String(rawUrl || "").trim();
+    if (!trimmed) return;
+    if (!looksLikeDeckUrl(trimmed)) {
+      setError("Paste a public Archidekt deck or collection link.");
+      return;
+    }
+    setLoading(true);
+    setHint("");
+    setError("");
+    try {
+      const data = await api.importDeckFromUrl(trimmed);
+      onLoad(data.cards.map((c) => ({ cardName: c.cardName, qty: c.qty })));
+      const label = data.deckName ? `"${data.deckName}"` : "list";
+      setHint(`Loaded ${data.cards.length} cards from ${label}. Hit Save to keep.`);
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  }
+
+  const content = (
+    <>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: COLORS.parchmentDim, marginBottom: 8 }}>
+        <Link2 size={12} color={COLORS.gold} />
+        Load from Archidekt deck or collection link
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="archidekt.com/decks/… or collection/v2/…"
+          style={{
+            flex: 1,
+            minWidth: 180,
+            background: COLORS.panelRaised,
+            border: `1px solid ${COLORS.hair}`,
+            borderRadius: 4,
+            color: COLORS.parchment,
+            fontSize: 12,
+            padding: "6px 8px",
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => loadFromUrl(url)}
+          disabled={loading || !url.trim()}
+          style={{
+            background: loading ? COLORS.panelRaised : "rgba(201,162,39,0.12)",
+            border: `1px solid ${COLORS.gold}`,
+            color: COLORS.gold,
+            borderRadius: 4,
+            padding: "6px 12px",
+            fontSize: 12,
+            cursor: loading || !url.trim() ? "not-allowed" : "pointer",
+            opacity: loading || !url.trim() ? 0.6 : 1,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {loading ? "Loading…" : "Load deck"}
+        </button>
+        <SaveChangesButton onSave={onSave} saving={saving} />
+      </div>
+      {hint && <div style={{ marginTop: 8, fontSize: 11, color: COLORS.gold }}>{hint}</div>}
+      <div style={{ marginTop: 6, fontSize: 10, color: COLORS.parchmentDim, lineHeight: 1.4 }}>
+        Public decks and collections only. Replaces the current list — save when you are happy with it.
+      </div>
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div style={{ borderTop: `1px solid ${COLORS.hair}`, padding: "10px 14px 12px", background: COLORS.panel }}>
+      {content}
     </div>
   );
 }
@@ -1470,8 +1680,8 @@ function AddCardForm({ onAdd }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ borderTop: `1px solid ${COLORS.hair}`, padding: "10px 14px", display: "flex", gap: 6, position: "relative" }}>
-      <div ref={wrapRef} style={{ flex: 1, position: "relative" }}>
+    <form onSubmit={submit} style={{ borderTop: `1px solid ${COLORS.hair}`, padding: "10px 14px 16px", display: "flex", gap: 6, position: "relative", overflow: "visible", zIndex: showSuggestions && suggestions.length ? 30 : undefined }}>
+      <div ref={wrapRef} style={{ flex: 1, position: "relative", overflow: "visible" }}>
         <input
           value={cardName}
           onChange={(e) => {
@@ -1485,7 +1695,7 @@ function AddCardForm({ onAdd }) {
           style={{ width: "100%", background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, color: COLORS.parchment, fontSize: 12, padding: "6px 8px" }}
         />
         {showSuggestions && suggestions.length > 0 && (
-          <div style={{ position: "absolute", left: 0, right: 0, top: "100%", marginTop: 4, background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, zIndex: 20, maxHeight: 180, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}>
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: "calc(100% + 10px)", background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, zIndex: 50, maxHeight: 220, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}>
             {suggestions.map((name, i) => (
               <button
                 key={name}
