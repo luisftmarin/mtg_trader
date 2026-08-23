@@ -96,6 +96,45 @@ function overlapKeysBetween(listA, listB) {
   return keys;
 }
 
+function sortPeerNames(names, priorityName) {
+  return [...names].sort((a, b) => {
+    if (priorityName) {
+      const aPrio = a === priorityName ? 0 : 1;
+      const bPrio = b === priorityName ? 0 : 1;
+      if (aPrio !== bPrio) return aPrio - bPrio;
+    }
+    return a.localeCompare(b);
+  });
+}
+
+function aggregateCanGetRows(rows, priorityFriendName, groupBySeeker = false) {
+  const byCard = new Map();
+  for (const row of rows) {
+    const key = groupBySeeker ? `${row.seeker}|${matchKey(row.cardName)}` : matchKey(row.cardName);
+    if (!byCard.has(key)) {
+      byCard.set(key, { ...row, owners: [{ name: row.owner, ownerHas: row.ownerHas }] });
+      continue;
+    }
+    const agg = byCard.get(key);
+    if (!agg.owners.some((o) => o.name === row.owner)) {
+      agg.owners.push({ name: row.owner, ownerHas: row.ownerHas });
+    }
+  }
+  return Array.from(byCard.values()).map((agg) => {
+    const sortedOwners = sortPeerNames(
+      agg.owners.map((o) => o.name),
+      priorityFriendName
+    );
+    const totalHas = agg.owners.reduce((sum, o) => sum + o.ownerHas, 0);
+    return {
+      ...agg,
+      owner: sortedOwners[0],
+      otherOwners: sortedOwners.slice(1),
+      tradeAvailable: Math.min(agg.seekerNeeds, totalHas),
+    };
+  });
+}
+
 async function fetchCardSuggestions(query) {
   if (query.trim().length < 2) return [];
   const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query.trim())}`);
@@ -1479,8 +1518,58 @@ function AddCardForm({ onAdd }) {
   );
 }
 
+function OwnerPeerCell({ primary, others, priorityFriendName }) {
+  const [open, setOpen] = useState(false);
+  if (!primary) return null;
+  const isPrio = primary === priorityFriendName;
+  return (
+    <span style={{ display: "inline-block" }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+        <span style={{ color: isPrio ? COLORS.gold : COLORS.parchment, fontWeight: isPrio ? 500 : 400 }}>{primary}</span>
+        {others?.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label={`${others.length} more owner${others.length !== 1 ? "s" : ""}`}
+            title={`Also has it: ${others.join(", ")}`}
+            style={{
+              fontSize: 11,
+              color: COLORS.gold,
+              background: open ? "rgba(201,162,39,0.15)" : "rgba(201,162,39,0.08)",
+              border: "1px solid rgba(201,162,39,0.35)",
+              borderRadius: 3,
+              padding: "1px 6px",
+              cursor: "pointer",
+              lineHeight: 1.4,
+              fontFamily: "inherit",
+            }}
+          >
+            +{others.length}
+          </button>
+        )}
+      </span>
+      {open && others?.length > 0 && (
+        <span style={{ display: "block", marginTop: 4, fontSize: 11, color: COLORS.parchmentDim, lineHeight: 1.4 }}>
+          Also has it:{" "}
+          {others.map((name, i) => (
+            <React.Fragment key={name}>
+              {i > 0 && ", "}
+              <span style={{ color: name === priorityFriendName ? COLORS.gold : COLORS.parchment }}>{name}</span>
+            </React.Fragment>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName, ownedOverlapKeys }) {
-  if (!rows.length) return <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>None right now.</div>;
+  const aggregateOwners = peerKey === "owner" || showBoth;
+  const displayRows = aggregateOwners
+    ? aggregateCanGetRows(rows, priorityFriendName, showBoth)
+    : rows;
+  if (!displayRows.length) return <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>None right now.</div>;
   return (
     <div style={{ overflowX: "auto" }}>
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 360 }}>
@@ -1494,7 +1583,7 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName, ow
         </tr>
       </thead>
       <tbody>
-        {rows.map((r, i) => {
+        {displayRows.map((r, i) => {
           const isPrio = matchInvolvesFriend(r, priorityFriendName);
           const alreadyOwned = ownedOverlapKeys?.has(matchKey(r.cardName));
           return (
@@ -1504,9 +1593,18 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName, ow
               {r.cardName}
               {alreadyOwned && <span style={{ marginLeft: 6, fontSize: 10, color: COLORS.gold }}>owned already</span>}
             </td>
-            {showBoth && <td style={{ ...tdStyle, color: r.owner === priorityFriendName ? COLORS.gold : COLORS.parchment }}>{r.owner}</td>}
+            {showBoth && (
+              <td style={tdStyle}>
+                <OwnerPeerCell primary={r.owner} others={r.otherOwners} priorityFriendName={priorityFriendName} />
+              </td>
+            )}
             {showBoth && <td style={{ ...tdStyle, color: r.seeker === priorityFriendName ? COLORS.gold : COLORS.parchment }}>{r.seeker}</td>}
-            {!showBoth && peerKey && (
+            {!showBoth && peerKey === "owner" && (
+              <td style={tdStyle}>
+                <OwnerPeerCell primary={r.owner} others={r.otherOwners} priorityFriendName={priorityFriendName} />
+              </td>
+            )}
+            {!showBoth && peerKey && peerKey !== "owner" && (
               <td style={{ ...tdStyle, color: r[peerKey] === priorityFriendName ? COLORS.gold : COLORS.parchment, fontWeight: r[peerKey] === priorityFriendName ? 500 : 400 }}>
                 {r[peerKey]}
               </td>
