@@ -48,5 +48,6 @@ export const api = {
     request(`/friends/${id}/collection`, { method: "PUT", body: JSON.stringify({ cards }) }),
   replaceWishlist: (id, cards) =>
     request(`/friends/${id}/wishlist`, { method: "PUT", body: JSON.stringify({ cards }) }),
+  importDeckFromUrl: (url) => request("/import/deck", { method: "POST", body: JSON.stringify({ url }) }),
   getMatches: () => request("/matches"),
 };
