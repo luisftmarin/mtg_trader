@@ -98,6 +98,16 @@ function buildMatchSummary(matches, userName, priorityName) {
   };
 }
 
+function overlapKeysBetween(listA, listB) {
+  const keysB = new Set(listB.map((r) => matchKey(r.cardName)));
+  const keys = new Set();
+  for (const row of listA) {
+    const key = matchKey(row.cardName);
+    if (keysB.has(key)) keys.add(key);
+  }
+  return keys;
+}
+
 async function fetchCardSuggestions(query) {
   if (query.trim().length < 2) return [];
   const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query.trim())}`);
@@ -354,6 +364,7 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [toast, setToast] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [editingLists, setEditingLists] = useState(null);
   const priorityStorageKey = `mtg-trade-ledger:priority:${identity.id}`;
   const [priorityFriendName, setPriorityFriendName] = useState(() => {
     try {
@@ -502,6 +513,12 @@ function MainApp({ identity, onSwitchIdentity }) {
   const showEditorMatches = editingFriend && matches !== null && matchesContext === "editor";
   const showMainMatches = !editingFriend && matches !== null && matchesContext === "main";
   const canResetMatches = editingFriend ? showEditorMatches : showMainMatches;
+  const editingOverlapKeys = useMemo(() => {
+    if (!editingLists) return new Set();
+    const coll = editingLists.collection.map((c) => ({ cardName: c.card_name, qty: c.qty }));
+    const wish = editingLists.wishlist.map((c) => ({ cardName: c.card_name, qty: c.qty }));
+    return overlapKeysBetween(wish, coll);
+  }, [editingLists]);
 
   return (
     <div style={{ minHeight: "100vh", background: COLORS.ink, color: COLORS.parchment, fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column" }}>
@@ -655,6 +672,9 @@ function MainApp({ identity, onSwitchIdentity }) {
                     <div style={{ fontSize: 13, fontWeight: 500 }}>
                       {f.name}
                       {isSelf && <span style={{ color: COLORS.gold, fontSize: 10, marginLeft: 6 }}>you</span>}
+                      {priorityFriendName === f.name && (
+                        <span style={{ color: COLORS.gold, fontSize: 10, marginLeft: 6 }}>prio</span>
+                      )}
                     </div>
                     <div style={{ fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
                       {f.collection_count} coll · {f.wishlist_count} wish
@@ -727,13 +747,12 @@ function MainApp({ identity, onSwitchIdentity }) {
                   }}
                 >
                   <option value="">None</option>
-                  {friends
-                    .filter((f) => f.id !== identity.id)
-                    .map((f) => (
-                      <option key={f.id} value={f.name}>
-                        {f.name}
-                      </option>
-                    ))}
+                  {friends.map((f) => (
+                    <option key={f.id} value={f.name}>
+                      {f.name}
+                      {f.id === identity.id ? " (you)" : ""}
+                    </option>
+                  ))}
                 </select>
               </label>
             )}
@@ -816,6 +835,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                         peerLabel="Who has it"
                         peerKey="owner"
                         priorityFriendName={priorityFriendName}
+                        ownedOverlapKeys={editingOverlapKeys}
                       />
                     </div>
                     <div style={{ flex: 1, minWidth: 280 }}>
@@ -833,7 +853,11 @@ function MainApp({ identity, onSwitchIdentity }) {
               <FriendEditor
                 friend={editingFriend}
                 isAdminEditing={editingFriend.id !== identity.id}
-                onClose={() => setEditingFriendId(null)}
+                onClose={() => {
+                  setEditingFriendId(null);
+                  setEditingLists(null);
+                }}
+                onListsChange={setEditingLists}
                 onSaved={() => {
                   refreshFriends();
                   setToast("Changes saved.");
@@ -1036,7 +1060,7 @@ function ChangePasswordModal({ onClose }) {
   );
 }
 
-function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
+function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange, setError }) {
   const [loading, setLoading] = useState(true);
   const [collection, setCollection] = useState([]);
   const [wishlist, setWishlist] = useState([]);
@@ -1066,12 +1090,23 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
     api
       .getFriend(friend.id)
       .then((data) => {
-        setCollection(data.collection.map((c) => ({ cardName: c.card_name, qty: c.qty })));
-        setWishlist(data.wishlist.map((c) => ({ cardName: c.card_name, qty: c.qty })));
+        const coll = data.collection.map((c) => ({ cardName: c.card_name, qty: c.qty }));
+        const wish = data.wishlist.map((c) => ({ cardName: c.card_name, qty: c.qty }));
+        setCollection(coll);
+        setWishlist(wish);
+        onListsChange?.({ collection: data.collection, wishlist: data.wishlist });
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [friend.id]);
+
+  useEffect(() => {
+    if (loading) return;
+    onListsChange?.({
+      collection: collection.map((c) => ({ card_name: c.cardName, qty: c.qty })),
+      wishlist: wishlist.map((c) => ({ card_name: c.cardName, qty: c.qty })),
+    });
+  }, [collection, wishlist, loading]);
 
   function updateRow(list, setList, i, field, value) {
     setList((prev) => {
@@ -1114,6 +1149,12 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
     try {
       await api.replaceCollection(friend.id, collection.filter((r) => r.cardName.trim()));
       await api.replaceWishlist(friend.id, wishlist.filter((r) => r.cardName.trim()));
+      const collRows = collection.filter((r) => r.cardName.trim());
+      const wishRows = wishlist.filter((r) => r.cardName.trim());
+      onListsChange?.({
+        collection: collRows.map((c) => ({ card_name: c.cardName, qty: c.qty })),
+        wishlist: wishRows.map((c) => ({ card_name: c.cardName, qty: c.qty })),
+      });
       onSaved();
     } catch (e) {
       setError(e.message);
@@ -1124,6 +1165,9 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
   if (loading) return <div style={{ fontSize: 13, color: COLORS.parchmentDim }}>Loading {friend.name}'s lists…</div>;
 
   const listsEmpty = collection.length === 0 && wishlist.length === 0;
+  const collectionOverlapKeys = overlapKeysBetween(collection, wishlist);
+  const wishlistOverlapKeys = overlapKeysBetween(wishlist, collection);
+  const overlapCount = collectionOverlapKeys.size;
 
   return (
     <div>
@@ -1180,6 +1224,12 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
         </div>
       )}
 
+      {overlapCount > 0 && (
+        <div style={{ border: `1px solid rgba(201,162,39,0.45)`, borderRadius: 6, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: COLORS.parchmentDim, background: "rgba(201,162,39,0.08)" }}>
+          <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace" }}>{overlapCount}</span> card{overlapCount !== 1 ? "s" : ""} appear in both collection and wishlist — highlighted below (already owned but still listed as wanted).
+        </div>
+      )}
+
       {listsEmpty && (
         <div style={{ border: `1px dashed ${COLORS.hair}`, borderRadius: 6, padding: "16px 18px", marginBottom: 16, fontSize: 12, color: COLORS.parchmentDim, lineHeight: 1.6 }}>
           <div style={{ color: COLORS.parchment, fontWeight: 500, marginBottom: 8 }}>Getting started with {friend.name}'s lists</div>
@@ -1195,6 +1245,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
         <EditableSection
           title="Collection"
           rows={collection}
+          overlapKeys={collectionOverlapKeys}
           onUpdateRow={(i, field, value) => updateRow(collection, setCollection, i, field, value)}
           onRemoveRow={(i) => removeRow(setCollection, i)}
           onAddRow={(name, qty) => addRow(setCollection, name, qty)}
@@ -1205,6 +1256,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
         <EditableSection
           title="Wishlist"
           rows={wishlist}
+          overlapKeys={wishlistOverlapKeys}
           onUpdateRow={(i, field, value) => updateRow(wishlist, setWishlist, i, field, value)}
           onRemoveRow={(i) => removeRow(setWishlist, i)}
           onAddRow={(name, qty) => addRow(setWishlist, name, qty)}
@@ -1217,7 +1269,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
   );
 }
 
-function EditableSection({ title, rows, onUpdateRow, onRemoveRow, onAddRow, onReplaceFile, platform, onPlatformChange }) {
+function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, onAddRow, onReplaceFile, platform, onPlatformChange }) {
   const inputRef = useRef(null);
   const [filter, setFilter] = useState("");
   const filtered = useMemo(() => {
@@ -1290,10 +1342,25 @@ function EditableSection({ title, rows, onUpdateRow, onRemoveRow, onAddRow, onRe
             </tr>
           </thead>
           <tbody>
-            {filtered.map(({ row, index }) => (
-              <tr key={index} style={{ borderBottom: `1px solid rgba(51,56,68,0.5)` }}>
+            {filtered.map(({ row, index }) => {
+              const isOverlap = overlapKeys?.has(matchKey(row.cardName));
+              return (
+              <tr key={index} style={{ borderBottom: `1px solid rgba(51,56,68,0.5)`, background: isOverlap ? "rgba(201,162,39,0.1)" : "transparent" }}>
                 <td style={{ padding: "4px 6px" }}>
-                  <input value={row.cardName} onChange={(e) => onUpdateRow(index, "name", e.target.value)} style={{ width: "100%", background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 3, color: COLORS.parchment, fontSize: 12, padding: "4px 6px" }} />
+                  <input
+                    value={row.cardName}
+                    onChange={(e) => onUpdateRow(index, "name", e.target.value)}
+                    title={isOverlap ? "Also on your other list" : undefined}
+                    style={{
+                      width: "100%",
+                      background: COLORS.panelRaised,
+                      border: `1px solid ${isOverlap ? COLORS.gold : COLORS.hair}`,
+                      borderRadius: 3,
+                      color: isOverlap ? COLORS.gold : COLORS.parchment,
+                      fontSize: 12,
+                      padding: "4px 6px",
+                    }}
+                  />
                 </td>
                 <td style={{ padding: "4px 6px" }}>
                   <input type="number" min="1" value={row.qty} onChange={(e) => onUpdateRow(index, "qty", e.target.value)} style={{ width: "100%", background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 3, color: COLORS.parchment, fontSize: 12, padding: "4px 6px", fontFamily: "'JetBrains Mono', monospace" }} />
@@ -1304,7 +1371,8 @@ function EditableSection({ title, rows, onUpdateRow, onRemoveRow, onAddRow, onRe
                   </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         )}
@@ -1429,7 +1497,7 @@ function AddCardForm({ onAdd }) {
   );
 }
 
-function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName }) {
+function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName, ownedOverlapKeys }) {
   if (!rows.length) return <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>None right now.</div>;
   return (
     <div style={{ overflowX: "auto" }}>
@@ -1446,11 +1514,13 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName }) 
       <tbody>
         {rows.map((r, i) => {
           const isPrio = matchInvolvesFriend(r, priorityFriendName);
+          const alreadyOwned = ownedOverlapKeys?.has(matchKey(r.cardName));
           return (
-          <tr key={i} style={{ borderBottom: `1px solid rgba(51,56,68,0.5)`, background: isPrio ? "rgba(201,162,39,0.06)" : "transparent" }}>
-            <td style={tdStyle}>
+          <tr key={i} style={{ borderBottom: `1px solid rgba(51,56,68,0.5)`, background: alreadyOwned ? "rgba(201,162,39,0.12)" : isPrio ? "rgba(201,162,39,0.06)" : "transparent" }}>
+            <td style={{ ...tdStyle, color: alreadyOwned ? COLORS.gold : tdStyle.color }} title={alreadyOwned ? "Already in collection and wishlist" : undefined}>
               <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: PIPS[pipFor(r.cardName)], marginRight: 8 }} />
               {r.cardName}
+              {alreadyOwned && <span style={{ marginLeft: 6, fontSize: 10, color: COLORS.gold }}>owned</span>}
             </td>
             {showBoth && <td style={{ ...tdStyle, color: r.owner === priorityFriendName ? COLORS.gold : COLORS.parchment }}>{r.owner}</td>}
             {showBoth && <td style={{ ...tdStyle, color: r.seeker === priorityFriendName ? COLORS.gold : COLORS.parchment }}>{r.seeker}</td>}
