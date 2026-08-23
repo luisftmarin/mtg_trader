@@ -125,7 +125,7 @@ function AuthGate({ onSet }) {
     <div style={{ minHeight: "100vh", background: COLORS.ink, color: COLORS.parchment, fontFamily: "'Inter', sans-serif", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; } input, button { font-family: inherit; }`}</style>
       <div style={{ width: 380, border: `1px solid ${COLORS.hair}`, borderRadius: 8, padding: 28, background: COLORS.panel }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 6 }}>Trade Ledger</div>
+        <div style={{ fontSize: 11, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 6 }}>Trade with Friends</div>
         <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 22, margin: "0 0 18px" }}>
           {mode === "login" ? "Sign in" : mode === "claim" ? "Claim your existing name" : "Create an account"}
         </h1>
@@ -382,7 +382,7 @@ function MainApp({ identity, onSwitchIdentity }) {
             </button>
           )}
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 2 }}>Trade Ledger</div>
+            <div style={{ fontSize: 10, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 2 }}>Trade with Friends</div>
             <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: isMobile ? 18 : 26, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {isMobile ? "Binder Exchange" : "Group Binder Exchange"}
             </h1>
@@ -522,6 +522,27 @@ function MainApp({ identity, onSwitchIdentity }) {
         </aside>
 
         <main style={{ flex: 1, padding: isMobile ? 16 : 28, overflow: "auto", minWidth: 0 }}>
+          <div style={{ marginBottom: 22 }}>
+            <button
+              onClick={calculateMatches}
+              disabled={matchesLoading || friends.length < 2}
+              style={{
+                background: "transparent",
+                border: `1px solid ${COLORS.gold}`,
+                color: COLORS.gold,
+                borderRadius: 4,
+                padding: "10px 18px",
+                fontSize: 13,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                cursor: matchesLoading || friends.length < 2 ? "default" : "pointer",
+                opacity: matchesLoading || friends.length < 2 ? 0.5 : 1,
+              }}
+            >
+              {matchesLoading ? "Calculating…" : "Calculate group matches"}
+            </button>
+          </div>
+
           {editingFriend ? (
             <FriendEditor
               friend={editingFriend}
@@ -538,85 +559,79 @@ function MainApp({ identity, onSwitchIdentity }) {
             <div style={{ border: `1px dashed ${COLORS.hair}`, borderRadius: 6, padding: 40, textAlign: "center", color: COLORS.parchmentDim, fontSize: 13 }}>
               Need at least two traders on the roster before matches can be calculated.
             </div>
+          ) : matches === null ? (
+            <div style={{ color: COLORS.parchmentDim, fontSize: 13 }}>
+              Click "Calculate group matches" to see potential trades across the roster.
+            </div>
           ) : (
             <>
-              <button
-                onClick={calculateMatches}
-                disabled={matchesLoading}
-                style={{ background: "transparent", border: `1px solid ${COLORS.gold}`, color: COLORS.gold, borderRadius: 4, padding: "10px 18px", fontSize: 13, fontWeight: 600, letterSpacing: "0.04em", cursor: "pointer", marginBottom: 22, opacity: matchesLoading ? 0.6 : 1 }}
-              >
-                {matchesLoading ? "Calculating…" : "Calculate group matches"}
-              </button>
+              {matches.length === 0 ? (
+                <div style={{ color: COLORS.parchmentDim, fontSize: 13 }}>No matches across the current roster.</div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, color: COLORS.parchmentDim }}>
+                      <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace" }}>{matches.length}</span> potential transfers found
+                    </div>
+                    <button onClick={exportCsv} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
+                      <Download size={13} /> Export CSV
+                    </button>
+                  </div>
 
-              {matches !== null && (
-                matches.length === 0 ? (
-                  <div style={{ color: COLORS.parchmentDim, fontSize: 13 }}>No matches across the current roster.</div>
-                ) : (
-                  <>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                      <div style={{ fontSize: 13, color: COLORS.parchmentDim }}>
-                        <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace" }}>{matches.length}</span> potential transfers found
-                      </div>
-                      <button onClick={exportCsv} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
-                        <Download size={13} /> Export CSV
+                  <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+                    {[["pair", "By trade pair"], ["friend", "By trader"], ["all", "Full list"]].map(([v, label]) => (
+                      <button
+                        key={v}
+                        onClick={() => setViewMode(v)}
+                        style={{ padding: "6px 14px", fontSize: 12, borderRadius: 4, border: `1px solid ${viewMode === v ? COLORS.gold : COLORS.hair}`, background: viewMode === v ? "rgba(201,162,39,0.1)" : "transparent", color: viewMode === v ? COLORS.gold : COLORS.parchmentDim, cursor: "pointer" }}
+                      >
+                        {label}
                       </button>
-                    </div>
+                    ))}
+                  </div>
 
-                    <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
-                      {[["pair", "By trade pair"], ["friend", "By trader"], ["all", "Full list"]].map(([v, label]) => (
-                        <button
-                          key={v}
-                          onClick={() => setViewMode(v)}
-                          style={{ padding: "6px 14px", fontSize: 12, borderRadius: 4, border: `1px solid ${viewMode === v ? COLORS.gold : COLORS.hair}`, background: viewMode === v ? "rgba(201,162,39,0.1)" : "transparent", color: viewMode === v ? COLORS.gold : COLORS.parchmentDim, cursor: "pointer" }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {viewMode === "pair" &&
-                      Object.entries(byPair).map(([key, rows]) => {
-                        const [owner, seeker] = key.split("|");
-                        return (
-                          <div key={key} style={{ marginBottom: 14, border: `1px solid ${COLORS.hair}`, borderRadius: 6, overflow: "hidden" }}>
-                            <div style={{ background: COLORS.panel, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Fraunces', serif", fontSize: 14 }}>
-                              {owner} <ArrowRight size={13} color={COLORS.gold} /> {seeker}
-                              <span style={{ marginLeft: "auto", fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
-                                {rows.length} card{rows.length !== 1 ? "s" : ""}
-                              </span>
-                            </div>
-                            <MatchTable rows={rows} />
+                  {viewMode === "pair" &&
+                    Object.entries(byPair).map(([key, rows]) => {
+                      const [owner, seeker] = key.split("|");
+                      return (
+                        <div key={key} style={{ marginBottom: 14, border: `1px solid ${COLORS.hair}`, borderRadius: 6, overflow: "hidden" }}>
+                          <div style={{ background: COLORS.panel, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Fraunces', serif", fontSize: 14 }}>
+                            {owner} <ArrowRight size={13} color={COLORS.gold} /> {seeker}
+                            <span style={{ marginLeft: "auto", fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
+                              {rows.length} card{rows.length !== 1 ? "s" : ""}
+                            </span>
                           </div>
-                        );
-                      })}
-
-                    {viewMode === "friend" && (
-                      <>
-                        <select
-                          value={selectedFriendName || ""}
-                          onChange={(e) => setSelectedFriendName(e.target.value)}
-                          style={{ marginBottom: 16, background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
-                        >
-                          {friends.map((f) => (
-                            <option key={f.id}>{f.name}</option>
-                          ))}
-                        </select>
-                        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                          <div style={{ flex: 1, minWidth: 280 }}>
-                            <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{selectedFriendName} can get</div>
-                            <MatchTable rows={matches.filter((m) => m.seeker === selectedFriendName)} peerLabel="Who has it" peerKey="owner" />
-                          </div>
-                          <div style={{ flex: 1, minWidth: 280 }}>
-                            <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{selectedFriendName} can give</div>
-                            <MatchTable rows={matches.filter((m) => m.owner === selectedFriendName)} peerLabel="Who needs it" peerKey="seeker" />
-                          </div>
+                          <MatchTable rows={rows} />
                         </div>
-                      </>
-                    )}
+                      );
+                    })}
 
-                    {viewMode === "all" && <MatchTable rows={[...matches].sort((a, b) => a.cardName.localeCompare(b.cardName))} showBoth />}
-                  </>
-                )
+                  {viewMode === "friend" && (
+                    <>
+                      <select
+                        value={selectedFriendName || ""}
+                        onChange={(e) => setSelectedFriendName(e.target.value)}
+                        style={{ marginBottom: 16, background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
+                      >
+                        {friends.map((f) => (
+                          <option key={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 280 }}>
+                          <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{selectedFriendName} can get</div>
+                          <MatchTable rows={matches.filter((m) => m.seeker === selectedFriendName)} peerLabel="Who has it" peerKey="owner" />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 280 }}>
+                          <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{selectedFriendName} can give</div>
+                          <MatchTable rows={matches.filter((m) => m.owner === selectedFriendName)} peerLabel="Who needs it" peerKey="seeker" />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {viewMode === "all" && <MatchTable rows={[...matches].sort((a, b) => a.cardName.localeCompare(b.cardName))} showBoth />}
+                </>
               )}
             </>
           )}
