@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Papa from "papaparse";
-import { Plus, X, Upload, ArrowRight, Download, Users, ChevronDown, LogOut, RefreshCw, Key } from "lucide-react";
+import { Plus, X, Upload, ArrowRight, Download, Users, ChevronDown, LogOut, RefreshCw, Key, Menu } from "lucide-react";
 import { api } from "./api.js";
 
 const COLORS = {
@@ -382,7 +382,7 @@ function MainApp({ identity, onSwitchIdentity }) {
               onClick={() => setSidebarOpen(true)}
               style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "6px 8px", cursor: "pointer", flexShrink: 0 }}
             >
-              <Users size={16} />
+              <Menu size={16} />
             </button>
           )}
           <div
