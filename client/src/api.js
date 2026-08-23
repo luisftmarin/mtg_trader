@@ -36,6 +36,11 @@ export const api = {
   register: (name, password, adminCode) =>
     request("/auth/register", { method: "POST", body: JSON.stringify({ name, password, adminCode }) }),
   login: (name, password) => request("/auth/login", { method: "POST", body: JSON.stringify({ name, password }) }),
+  claimAccount: (name, password) => request("/auth/claim", { method: "POST", body: JSON.stringify({ name, password }) }),
+  changePassword: (currentPassword, newPassword) =>
+    request("/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }),
+  resetPassword: (friendId, newPassword) =>
+    request(`/friends/${friendId}/reset-password`, { method: "POST", body: JSON.stringify({ newPassword }) }),
   listFriends: () => request("/friends"),
   deleteFriend: (id) => request(`/friends/${id}`, { method: "DELETE" }),
   getFriend: (id) => request(`/friends/${id}`),

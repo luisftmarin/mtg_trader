@@ -133,9 +133,19 @@ main setup, so no extra step is needed for it.
   that person register with "Have an admin code?" on the sign-up form
   and enter it. To promote someone already registered, run the SQL in
   `migrations/003_add_admin.sql` directly against your database instead.
+- No email system is set up, so password recovery works two ways instead
+  of an email reset link: anyone signed in can change their own password
+  from the key icon in the header (enter current + new password), and
+  admins can reset any trader's password directly from that trader's
+  editor screen — useful if someone genuinely forgets and can't sign in.
 - On Railway, don't forget to add `JWT_SECRET` (and `ADMIN_SIGNUP_CODE`
   if you're using it) alongside `DATABASE_URL` and `ALLOWED_ORIGINS` in
   the service's Variables tab.
-- Any traders created before the auth update (under the old name-only
-  system) have no password on file and can't log in — they'll need to
-  register again with a password.
+- Any traders created under the old name-only system (before passwords
+  existed) already have that name taken, so they can't register fresh
+  under it. They should instead use "Existing trader without a password?
+  Claim this name" on the sign-in screen, entering their exact existing
+  name and a new password — this sets a password on their existing
+  account without losing their saved collection/wishlist. An admin can
+  also do this for them via "Reset password" in their editor screen if
+  they'd rather not do it themselves.

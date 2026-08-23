@@ -9,30 +9,9 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:5173").split(",");
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow non-browser requests (Postman, curl, server-to-server)
-    if (!origin) return callback(null, true);
-
-    const isExplicitlyAllowed = ALLOWED_ORIGINS.includes(origin);
-    const isVercelPreview = /^https:\/\/mtg-trader-.*-luisftmarins-projects\.vercel\.app$/.test(origin);
-
-    if (isExplicitlyAllowed || isVercelPreview) {
-      return callback(null, true);
-    }
-
-    return callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true
-}));
-
-
-
-
-
+app.use(cors({ origin: ALLOWED_ORIGINS }));
 app.use(express.json({ limit: "5mb" }));
 
 function matchKey(name) {
@@ -70,7 +49,10 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT id, name, password_hash, is_admin FROM friends WHERE name = $1", [name]);
     const friend = rows[0];
-    if (!friend || !friend.password_hash) {
+    if (friend && !friend.password_hash) {
+      return res.status(401).json({ error: "This trader exists but has no password yet — use \"Claim this name\" below to set one." });
+    }
+    if (!friend) {
       return res.status(401).json({ error: "Incorrect name or password." });
     }
     const ok = await verifyPassword(password, friend.password_hash);
@@ -82,6 +64,67 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+// For traders created before password auth existed: sets a password on
+// their existing account (preserving their collection/wishlist) instead
+// of making them start over under a new name.
+app.post("/api/auth/claim", async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const password = String(req.body.password || "");
+  if (!name || !password) return res.status(400).json({ error: "Name and password are required." });
+  if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters." });
+  try {
+    const { rows } = await pool.query("SELECT id, name, password_hash, is_admin FROM friends WHERE name = $1", [name]);
+    const friend = rows[0];
+    if (!friend) return res.status(404).json({ error: "No trader with that name on the roster." });
+    if (friend.password_hash) {
+      return res.status(409).json({ error: "This account already has a password — use Sign in instead." });
+    }
+    const hash = await hashPassword(password);
+    await pool.query("UPDATE friends SET password_hash = $1 WHERE id = $2", [hash, friend.id]);
+    res.json({ token: signToken(friend), friend: { id: friend.id, name: friend.name, isAdmin: friend.is_admin } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not claim account." });
+  }
+});
+
+// Change your own password (must know the current one). No email needed.
+app.post("/api/auth/change-password", requireAuth, async (req, res) => {
+  const currentPassword = String(req.body.currentPassword || "");
+  const newPassword = String(req.body.newPassword || "");
+  if (newPassword.length < 6) return res.status(400).json({ error: "New password must be at least 6 characters." });
+  try {
+    const { rows } = await pool.query("SELECT id, password_hash FROM friends WHERE id = $1", [req.user.id]);
+    const friend = rows[0];
+    if (!friend) return res.status(404).json({ error: "Account not found." });
+    const ok = await verifyPassword(currentPassword, friend.password_hash);
+    if (!ok) return res.status(401).json({ error: "Current password is incorrect." });
+    const hash = await hashPassword(newPassword);
+    await pool.query("UPDATE friends SET password_hash = $1 WHERE id = $2", [hash, friend.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not change password." });
+  }
+});
+
+// Admin-only: reset any trader's password without knowing the old one —
+// the no-email answer to "I forgot my password."
+app.post("/api/friends/:id/reset-password", requireAuth, async (req, res) => {
+  if (!req.user.isAdmin) return res.status(403).json({ error: "Only admins can reset another trader's password." });
+  const newPassword = String(req.body.newPassword || "");
+  if (newPassword.length < 6) return res.status(400).json({ error: "New password must be at least 6 characters." });
+  try {
+    const hash = await hashPassword(newPassword);
+    const result = await pool.query("UPDATE friends SET password_hash = $1 WHERE id = $2 RETURNING id", [hash, req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: "Trader not found." });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not reset password." });
+  }
+});
+
 // --- Friends ---
 // Viewing the roster and matches doesn't require auth (it's a shared board),
 // but every route below that changes data does.
@@ -90,6 +133,7 @@ app.get("/api/friends", async (req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT f.id, f.name,
+        (f.password_hash IS NOT NULL) AS has_password,
         COALESCE(c.cnt, 0)::int AS collection_count,
         COALESCE(w.cnt, 0)::int AS wishlist_count
       FROM friends f
