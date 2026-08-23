@@ -488,7 +488,14 @@ function MainApp({ identity, onSwitchIdentity }) {
   function requestRemoveFriend(id) {
     const friend = friends.find((f) => f.id === id);
     if (!friend) return;
-    setConfirmDelete({ id, name: friend.name, isSelf: id === identity.id });
+    setConfirmDelete({
+      id,
+      name: friend.name,
+      isSelf: id === identity.id,
+      isAdminRemovingOther: identity.isAdmin && id !== identity.id,
+      collectionCount: friend.collection_count ?? friend.collection_count ?? 0,
+      wishlistCount: friend.wishlist_count ?? friend.wishlist_count ?? 0,
+    });
   }
 
   async function confirmRemoveFriend() {
@@ -616,7 +623,12 @@ function MainApp({ identity, onSwitchIdentity }) {
 
       {confirmDelete && (
         <ConfirmModal
-          title={confirmDelete.isSelf ? "Delete your account?" : `Remove ${confirmDelete.name}?`}
+          title={confirmDelete.isSelf ? "Delete your account?" : `Remove ${confirmDelete.name} from the roster?`}
+          warning={
+            confirmDelete.isAdminRemovingOther
+              ? `Admin warning: you are about to remove ${confirmDelete.name}. Their collection (${confirmDelete.collectionCount} cards) and wishlist (${confirmDelete.wishlistCount} cards) will be deleted. This cannot be undone.`
+              : undefined
+          }
           message={
             confirmDelete.isSelf
               ? "This permanently deletes your account, collection, and wishlist. This cannot be undone."
@@ -1945,11 +1957,16 @@ function Toast({ message }) {
   );
 }
 
-function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }) {
+function ConfirmModal({ title, message, warning, confirmLabel, onConfirm, onCancel }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onCancel}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: 360, maxWidth: "100%", background: COLORS.panel, border: `1px solid ${COLORS.hair}`, borderRadius: 8, padding: 24 }}>
         <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 17, margin: "0 0 10px", color: COLORS.parchment }}>{title}</h2>
+        {warning && (
+          <div style={{ fontSize: 12, color: "#D9736A", background: "rgba(217,115,106,0.12)", border: "1px solid rgba(217,115,106,0.35)", borderRadius: 4, padding: "8px 10px", marginBottom: 12, lineHeight: 1.45 }}>
+            {warning}
+          </div>
+        )}
         <p style={{ fontSize: 13, color: COLORS.parchmentDim, margin: "0 0 20px", lineHeight: 1.5 }}>{message}</p>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onCancel} style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "8px 14px", fontSize: 12, cursor: "pointer" }}>
