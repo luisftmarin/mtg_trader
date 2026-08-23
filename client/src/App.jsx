@@ -316,7 +316,15 @@ function MainApp({ identity, onSwitchIdentity }) {
     try {
       const result = await api.getMatches();
       setMatches(result);
-      if (result.length && !selectedFriendName) setSelectedFriendName(result[0].seeker);
+      if (editingFriend) {
+        // Jump straight to this trader's matches instead of leaving them
+        // stuck on the editor until they manually cancel out of it.
+        setSelectedFriendName(editingFriend.name);
+        setViewMode("friend");
+        setEditingFriendId(null);
+      } else if (result.length && !selectedFriendName) {
+        setSelectedFriendName(result[0].seeker);
+      }
     } catch (e) {
       setError(e.message);
     }
