@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Papa from "papaparse";
-import { Plus, X, Upload, ArrowRight, Download, Users, ChevronDown, LogOut, RefreshCw, Key, Menu, Star } from "lucide-react";
+import { Plus, X, Upload, ArrowRight, Download, Users, LogOut, RefreshCw, Key, Menu, Star, Search } from "lucide-react";
 import { api } from "./api.js";
 
 const COLORS = {
@@ -87,6 +87,23 @@ function sortPairEntries(entries, priorityName) {
     if (aPrio !== bPrio) return aPrio - bPrio;
     return keyA.localeCompare(keyB);
   });
+}
+
+function buildMatchSummary(matches, userName, priorityName) {
+  return {
+    total: matches.length,
+    involvingPriority: priorityName ? matches.filter((m) => matchInvolvesFriend(m, priorityName)).length : 0,
+    userCanGet: matches.filter((m) => m.seeker === userName).length,
+    userCanGive: matches.filter((m) => m.owner === userName).length,
+  };
+}
+
+async function fetchCardSuggestions(query) {
+  if (query.trim().length < 2) return [];
+  const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query.trim())}`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.data || [];
 }
 
 function pipFor(name) {
@@ -334,6 +351,8 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [isMobile, setIsMobile] = useState(() => forceMobilePreview || window.innerWidth <= 768);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const priorityStorageKey = `mtg-trade-ledger:priority:${identity.id}`;
   const [priorityFriendName, setPriorityFriendName] = useState(() => {
     try {
@@ -372,6 +391,12 @@ function MainApp({ identity, onSwitchIdentity }) {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [forceMobilePreview]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   async function refreshFriends() {
     setLoadingFriends(true);
@@ -413,12 +438,26 @@ function MainApp({ identity, onSwitchIdentity }) {
     }
   }
 
-  async function removeFriend(id) {
+  function requestRemoveFriend(id) {
+    const friend = friends.find((f) => f.id === id);
+    if (!friend) return;
+    setConfirmDelete({ id, name: friend.name, isSelf: id === identity.id });
+  }
+
+  async function confirmRemoveFriend() {
+    if (!confirmDelete) return;
+    const { id } = confirmDelete;
+    setConfirmDelete(null);
     try {
       await api.deleteFriend(id);
       if (editingFriendId === id) setEditingFriendId(null);
       refreshFriends();
       setMatches(null);
+      if (id === identity.id) {
+        window.localStorage.removeItem(IDENTITY_KEY);
+        window.localStorage.removeItem(TOKEN_KEY);
+        window.location.reload();
+      }
     } catch (e) {
       setError(e.message);
     }
@@ -508,6 +547,22 @@ function MainApp({ identity, onSwitchIdentity }) {
       </header>
 
       {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title={confirmDelete.isSelf ? "Delete your account?" : `Remove ${confirmDelete.name}?`}
+          message={
+            confirmDelete.isSelf
+              ? "This permanently deletes your account, collection, and wishlist. This cannot be undone."
+              : `This permanently removes ${confirmDelete.name} from the roster and deletes all their saved lists.`
+          }
+          confirmLabel={confirmDelete.isSelf ? "Delete my account" : "Remove trader"}
+          onConfirm={confirmRemoveFriend}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
+      {toast && <Toast message={toast} />}
 
       {error && (
         <div style={{ background: "rgba(217,115,106,0.12)", color: "#D9736A", padding: isMobile ? "8px 16px" : "8px 28px", fontSize: 12 }}>{error}</div>
@@ -602,7 +657,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        removeFriend(f.id);
+                        requestRemoveFriend(f.id);
                       }}
                       title={isSelf ? "Delete my account" : "Remove this trader (admin)"}
                       style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.parchmentDim, padding: 4 }}
@@ -621,22 +676,47 @@ function MainApp({ identity, onSwitchIdentity }) {
         </aside>
 
         <main style={{ flex: 1, padding: isMobile ? 16 : 28, overflow: "auto", minWidth: 0 }}>
-          <div style={{ marginBottom: 22, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", position: "sticky", top: 0, background: COLORS.ink, zIndex: 10, paddingTop: 2, paddingBottom: 2 }}>
+          <div
+            style={{
+              marginBottom: 22,
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              alignItems: isMobile ? "stretch" : "center",
+              gap: 10,
+              flexWrap: "wrap",
+              position: "sticky",
+              top: 0,
+              background: COLORS.ink,
+              zIndex: 10,
+              paddingTop: 2,
+              paddingBottom: 2,
+            }}
+          >
             {friends.length >= 2 && (
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: COLORS.parchmentDim }}>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 12,
+                  color: COLORS.parchmentDim,
+                  width: isMobile ? "100%" : undefined,
+                }}
+              >
                 <Star size={13} color={priorityFriendName ? COLORS.gold : COLORS.parchmentDim} fill={priorityFriendName ? COLORS.gold : "none"} />
                 Priority
                 <select
                   value={priorityFriendName}
                   onChange={(e) => updatePriorityFriend(e.target.value)}
                   style={{
+                    flex: isMobile ? 1 : undefined,
                     background: COLORS.panelRaised,
                     border: `1px solid ${priorityFriendName ? COLORS.gold : COLORS.hair}`,
                     color: priorityFriendName ? COLORS.gold : COLORS.parchment,
                     borderRadius: 4,
                     padding: "8px 10px",
                     fontSize: 12,
-                    minWidth: 140,
+                    minWidth: isMobile ? 0 : 140,
                   }}
                 >
                   <option value="">None</option>
@@ -650,55 +730,69 @@ function MainApp({ identity, onSwitchIdentity }) {
                 </select>
               </label>
             )}
-            <button
-              onClick={calculateMatches}
-              disabled={matchesLoading || friends.length < 2}
-              style={{
-                background: "transparent",
-                border: `1px solid ${COLORS.gold}`,
-                color: COLORS.gold,
-                borderRadius: 4,
-                padding: "10px 18px",
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: "0.04em",
-                cursor: matchesLoading || friends.length < 2 ? "default" : "pointer",
-                opacity: matchesLoading || friends.length < 2 ? 0.5 : 1,
-              }}
-            >
-              {matchesLoading ? "Calculating…" : "Calculate group matches"}
-            </button>
-            <button
-              onClick={resetMatches}
-              disabled={matches === null}
-              title="Clear matches and return to collection/wishlist"
-              style={{
-                background: "none",
-                border: `1px solid ${COLORS.hair}`,
-                color: COLORS.parchmentDim,
-                borderRadius: 4,
-                padding: "10px 14px",
-                fontSize: 12,
-                cursor: matches === null ? "default" : "pointer",
-                opacity: matches === null ? 0.5 : 1,
-              }}
-            >
-              Reset
-            </button>
-            {editingFriend && (
+            <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 10, width: isMobile ? "100%" : undefined }}>
               <button
-                onClick={() => setEditingFriendId(null)}
-                style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "10px 14px", fontSize: 12, cursor: "pointer" }}
+                onClick={calculateMatches}
+                disabled={matchesLoading || friends.length < 2}
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${COLORS.gold}`,
+                  color: COLORS.gold,
+                  borderRadius: 4,
+                  padding: "10px 18px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  cursor: matchesLoading || friends.length < 2 ? "default" : "pointer",
+                  opacity: matchesLoading || friends.length < 2 ? 0.5 : 1,
+                  width: isMobile ? "100%" : undefined,
+                }}
               >
-                ← Back to main page
+                {matchesLoading ? "Calculating…" : "Calculate group matches"}
               </button>
-            )}
+              <button
+                onClick={resetMatches}
+                disabled={matches === null}
+                title="Clear matches and return to collection/wishlist"
+                style={{
+                  background: "none",
+                  border: `1px solid ${COLORS.hair}`,
+                  color: COLORS.parchmentDim,
+                  borderRadius: 4,
+                  padding: "10px 14px",
+                  fontSize: 12,
+                  cursor: matches === null ? "default" : "pointer",
+                  opacity: matches === null ? 0.5 : 1,
+                  width: isMobile ? "100%" : undefined,
+                }}
+              >
+                Reset
+              </button>
+              {editingFriend && (
+                <button
+                  onClick={() => setEditingFriendId(null)}
+                  style={{
+                    background: "none",
+                    border: `1px solid ${COLORS.hair}`,
+                    color: COLORS.parchmentDim,
+                    borderRadius: 4,
+                    padding: "10px 14px",
+                    fontSize: 12,
+                    cursor: "pointer",
+                    width: isMobile ? "100%" : undefined,
+                  }}
+                >
+                  ← Back to main page
+                </button>
+              )}
+            </div>
           </div>
 
           {editingFriend ? (
             <>
               {matches !== null && (
                 <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: `1px solid ${COLORS.hair}` }}>
+                  <MatchSummary matches={matches} userName={identity.name} priorityFriendName={priorityFriendName} />
                   <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                     {editingFriend.name}'s matches
                   </div>
@@ -730,8 +824,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                 onClose={() => setEditingFriendId(null)}
                 onSaved={() => {
                   refreshFriends();
-                  setMatches(null);
-                  setEditingFriendId(null);
+                  setToast("Changes saved.");
                 }}
                 setError={setError}
               />
@@ -741,19 +834,22 @@ function MainApp({ identity, onSwitchIdentity }) {
               Need at least two traders on the roster before matches can be calculated.
             </div>
           ) : matches === null ? (
-            <div style={{ color: COLORS.parchmentDim, fontSize: 13 }}>
-              Click "Calculate group matches" to see potential trades across the roster.
+            <div style={{ border: `1px dashed ${COLORS.hair}`, borderRadius: 6, padding: isMobile ? 24 : 32, color: COLORS.parchmentDim, fontSize: 13, lineHeight: 1.6 }}>
+              <div style={{ fontFamily: "'Fraunces', serif", color: COLORS.parchment, fontSize: 16, marginBottom: 10 }}>Ready to find trades?</div>
+              <ol style={{ margin: "0 0 0 18px", padding: 0 }}>
+                <li>Click your name in the roster to add your collection and wishlist.</li>
+                <li>Import a CSV from Archidekt, or add cards manually.</li>
+                <li>Once at least two traders have lists, hit <strong style={{ color: COLORS.gold }}>Calculate group matches</strong>.</li>
+              </ol>
             </div>
           ) : (
             <>
+              <MatchSummary matches={matches} userName={identity.name} priorityFriendName={priorityFriendName} />
               {matches.length === 0 ? (
                 <div style={{ color: COLORS.parchmentDim, fontSize: 13 }}>No matches across the current roster.</div>
               ) : (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                    <div style={{ fontSize: 13, color: COLORS.parchmentDim }}>
-                      <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace" }}>{matches.length}</span> potential transfers found
-                    </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 16 }}>
                     <button onClick={exportCsv} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
                       <Download size={13} /> Export CSV
                     </button>
@@ -1015,6 +1111,8 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
 
   if (loading) return <div style={{ fontSize: 13, color: COLORS.parchmentDim }}>Loading {friend.name}'s lists…</div>;
 
+  const listsEmpty = collection.length === 0 && wishlist.length === 0;
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isAdminEditing ? 6 : 20 }}>
@@ -1070,6 +1168,17 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
         </div>
       )}
 
+      {listsEmpty && (
+        <div style={{ border: `1px dashed ${COLORS.hair}`, borderRadius: 6, padding: "16px 18px", marginBottom: 16, fontSize: 12, color: COLORS.parchmentDim, lineHeight: 1.6 }}>
+          <div style={{ color: COLORS.parchment, fontWeight: 500, marginBottom: 8 }}>Getting started with {friend.name}'s lists</div>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            <li>Upload a CSV — use <strong style={{ color: COLORS.gold }}>Names only</strong> for Archidekt deck exports.</li>
+            <li>Or add cards one at a time — names autocomplete from Scryfall as you type.</li>
+            <li>Save when done, then calculate group matches from the main page.</li>
+          </ul>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
         <EditableSection
           title="Collection"
@@ -1098,14 +1207,24 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
 
 function EditableSection({ title, rows, onUpdateRow, onRemoveRow, onAddRow, onReplaceFile, platform, onPlatformChange }) {
   const inputRef = useRef(null);
+  const [filter, setFilter] = useState("");
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    return rows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => !q || row.cardName.toLowerCase().includes(q));
+  }, [rows, filter]);
+
   return (
     <div style={{ flex: 1, minWidth: 320, border: `1px solid ${COLORS.hair}`, borderRadius: 6, overflow: "hidden" }}>
       <div style={{ background: COLORS.panel, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontFamily: "'Fraunces', serif", fontSize: 14 }}>{title}</span>
-        <span style={{ fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>{rows.length} cards</span>
+        <span style={{ fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
+          {filter.trim() ? `${filtered.length} / ${rows.length}` : rows.length} cards
+        </span>
       </div>
 
-      <div style={{ padding: "10px 14px", display: "flex", gap: 6, alignItems: "center", borderBottom: `1px solid ${COLORS.hair}` }}>
+      <div style={{ padding: "10px 14px", display: "flex", gap: 6, alignItems: "center", borderBottom: `1px solid ${COLORS.hair}`, flexWrap: "wrap" }}>
         <select value={platform} onChange={(e) => onPlatformChange(e.target.value)} style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "5px 6px", fontSize: 11 }}>
           {Object.keys(PLATFORM_MAPPINGS).map((p) => (
             <option key={p}>{p}</option>
@@ -1127,7 +1246,29 @@ function EditableSection({ title, rows, onUpdateRow, onRemoveRow, onAddRow, onRe
         />
       </div>
 
+      <div style={{ padding: "8px 14px", borderBottom: `1px solid ${COLORS.hair}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "5px 8px" }}>
+          <Search size={12} color={COLORS.parchmentDim} />
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter cards…"
+            style={{ flex: 1, background: "none", border: "none", color: COLORS.parchment, fontSize: 12, outline: "none" }}
+          />
+          {filter && (
+            <button onClick={() => setFilter("")} style={{ background: "none", border: "none", color: COLORS.parchmentDim, cursor: "pointer", padding: 0 }}>
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+
       <div style={{ maxHeight: 360, overflow: "auto" }}>
+        {filtered.length === 0 ? (
+          <div style={{ padding: 24, textAlign: "center", color: COLORS.parchmentDim, fontSize: 12, fontStyle: "italic" }}>
+            {filter.trim() ? "No cards match your filter." : "No cards yet — add one below or import a CSV."}
+          </div>
+        ) : (
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${COLORS.hair}` }}>
@@ -1137,16 +1278,16 @@ function EditableSection({ title, rows, onUpdateRow, onRemoveRow, onAddRow, onRe
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} style={{ borderBottom: `1px solid rgba(51,56,68,0.5)` }}>
+            {filtered.map(({ row, index }) => (
+              <tr key={index} style={{ borderBottom: `1px solid rgba(51,56,68,0.5)` }}>
                 <td style={{ padding: "4px 6px" }}>
-                  <input value={r.cardName} onChange={(e) => onUpdateRow(i, "name", e.target.value)} style={{ width: "100%", background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 3, color: COLORS.parchment, fontSize: 12, padding: "4px 6px" }} />
+                  <input value={row.cardName} onChange={(e) => onUpdateRow(index, "name", e.target.value)} style={{ width: "100%", background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 3, color: COLORS.parchment, fontSize: 12, padding: "4px 6px" }} />
                 </td>
                 <td style={{ padding: "4px 6px" }}>
-                  <input type="number" min="1" value={r.qty} onChange={(e) => onUpdateRow(i, "qty", e.target.value)} style={{ width: "100%", background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 3, color: COLORS.parchment, fontSize: 12, padding: "4px 6px", fontFamily: "'JetBrains Mono', monospace" }} />
+                  <input type="number" min="1" value={row.qty} onChange={(e) => onUpdateRow(index, "qty", e.target.value)} style={{ width: "100%", background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 3, color: COLORS.parchment, fontSize: 12, padding: "4px 6px", fontFamily: "'JetBrains Mono', monospace" }} />
                 </td>
                 <td style={{ padding: "4px 6px", textAlign: "center" }}>
-                  <button onClick={() => onRemoveRow(i)} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.parchmentDim, padding: 2 }}>
+                  <button onClick={() => onRemoveRow(index)} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.parchmentDim, padding: 2 }}>
                     <X size={12} />
                   </button>
                 </td>
@@ -1154,6 +1295,7 @@ function EditableSection({ title, rows, onUpdateRow, onRemoveRow, onAddRow, onRe
             ))}
           </tbody>
         </table>
+        )}
       </div>
 
       <AddCardForm onAdd={onAddRow} />
@@ -1164,6 +1306,41 @@ function EditableSection({ title, rows, onUpdateRow, onRemoveRow, onAddRow, onRe
 function AddCardForm({ onAdd }) {
   const [cardName, setCardName] = useState("");
   const [qty, setQty] = useState(1);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const debounceRef = useRef(null);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (cardName.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      const names = await fetchCardSuggestions(cardName);
+      setSuggestions(names.slice(0, 8));
+      setActiveSuggestion(-1);
+    }, 250);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [cardName]);
+
+  useEffect(() => {
+    function onDocClick(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowSuggestions(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  function pickSuggestion(name) {
+    setCardName(name);
+    setSuggestions([]);
+    setShowSuggestions(false);
+  }
 
   function submit(e) {
     e.preventDefault();
@@ -1171,11 +1348,67 @@ function AddCardForm({ onAdd }) {
     onAdd(cardName, qty);
     setCardName("");
     setQty(1);
+    setSuggestions([]);
+    setShowSuggestions(false);
+  }
+
+  function onKeyDown(e) {
+    if (!showSuggestions || !suggestions.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveSuggestion((i) => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveSuggestion((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" && activeSuggestion >= 0) {
+      e.preventDefault();
+      pickSuggestion(suggestions[activeSuggestion]);
+    } else if (e.key === "Escape") {
+      setShowSuggestions(false);
+    }
   }
 
   return (
-    <form onSubmit={submit} style={{ borderTop: `1px solid ${COLORS.hair}`, padding: "10px 14px", display: "flex", gap: 6 }}>
-      <input value={cardName} onChange={(e) => setCardName(e.target.value)} placeholder="Card name" style={{ flex: 1, background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, color: COLORS.parchment, fontSize: 12, padding: "6px 8px" }} />
+    <form onSubmit={submit} style={{ borderTop: `1px solid ${COLORS.hair}`, padding: "10px 14px", display: "flex", gap: 6, position: "relative" }}>
+      <div ref={wrapRef} style={{ flex: 1, position: "relative" }}>
+        <input
+          value={cardName}
+          onChange={(e) => {
+            setCardName(e.target.value);
+            setShowSuggestions(true);
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          onKeyDown={onKeyDown}
+          placeholder="Card name"
+          autoComplete="off"
+          style={{ width: "100%", background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, color: COLORS.parchment, fontSize: 12, padding: "6px 8px" }}
+        />
+        {showSuggestions && suggestions.length > 0 && (
+          <div style={{ position: "absolute", left: 0, right: 0, top: "100%", marginTop: 4, background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, zIndex: 20, maxHeight: 180, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}>
+            {suggestions.map((name, i) => (
+              <button
+                key={name}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pickSuggestion(name)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  background: i === activeSuggestion ? "rgba(201,162,39,0.12)" : "transparent",
+                  border: "none",
+                  color: COLORS.parchment,
+                  fontSize: 12,
+                  padding: "7px 10px",
+                  cursor: "pointer",
+                }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} style={{ width: 56, background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, color: COLORS.parchment, fontSize: 12, padding: "6px 8px", fontFamily: "'JetBrains Mono', monospace" }} />
       <button type="submit" style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: `1px solid ${COLORS.gold}`, color: COLORS.gold, borderRadius: 4, padding: "6px 12px", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
         <Plus size={12} /> Add
@@ -1226,3 +1459,80 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName }) 
 
 const thStyle = { textAlign: "left", padding: "6px 10px", fontSize: 11, color: COLORS.parchmentDim, textTransform: "uppercase", letterSpacing: "0.05em" };
 const tdStyle = { padding: "8px 10px", color: COLORS.parchment };
+
+function MatchSummary({ matches, userName, priorityFriendName }) {
+  if (!matches?.length) return null;
+  const stats = buildMatchSummary(matches, userName, priorityFriendName);
+  return (
+    <div
+      style={{
+        marginBottom: 16,
+        padding: "12px 14px",
+        background: COLORS.panel,
+        border: `1px solid ${COLORS.hair}`,
+        borderRadius: 6,
+        fontSize: 13,
+        color: COLORS.parchmentDim,
+        lineHeight: 1.5,
+      }}
+    >
+      <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>{stats.total}</span> potential transfers
+      {priorityFriendName && stats.involvingPriority > 0 && (
+        <>
+          {" "}
+          · <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace" }}>{stats.involvingPriority}</span> involve{" "}
+          <span style={{ color: COLORS.gold }}>{priorityFriendName}</span>
+        </>
+      )}
+      {(stats.userCanGet > 0 || stats.userCanGive > 0) && (
+        <>
+          {" "}
+          · You can get <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace" }}>{stats.userCanGet}</span>, give{" "}
+          <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace" }}>{stats.userCanGive}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Toast({ message }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: 24,
+        left: "50%",
+        transform: "translateX(-50%)",
+        background: COLORS.panelRaised,
+        border: `1px solid ${COLORS.gold}`,
+        color: COLORS.parchment,
+        borderRadius: 6,
+        padding: "10px 18px",
+        fontSize: 13,
+        zIndex: 70,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+      }}
+    >
+      {message}
+    </div>
+  );
+}
+
+function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onCancel}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 360, maxWidth: "100%", background: COLORS.panel, border: `1px solid ${COLORS.hair}`, borderRadius: 8, padding: 24 }}>
+        <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 17, margin: "0 0 10px", color: COLORS.parchment }}>{title}</h2>
+        <p style={{ fontSize: 13, color: COLORS.parchmentDim, margin: "0 0 20px", lineHeight: 1.5 }}>{message}</p>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "8px 14px", fontSize: 12, cursor: "pointer" }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} style={{ background: "#8B3A34", border: "none", color: COLORS.parchment, borderRadius: 4, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
