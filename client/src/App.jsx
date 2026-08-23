@@ -1151,8 +1151,8 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
     });
   }
 
-  function removeRow(setList, i) {
-    setList((prev) => prev.filter((_, idx) => idx !== i));
+  function removeRowAt(list, i) {
+    return list.filter((_, idx) => idx !== i);
   }
 
   function addRow(list, cardName, qty) {
@@ -1185,6 +1185,14 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
     const nextCollection = kind === "collection" ? addRow(collection, cardName, qty) : collection;
     const nextWishlist = kind === "wishlist" ? addRow(wishlist, cardName, qty) : wishlist;
     if (nextCollection === collection && nextWishlist === wishlist) return;
+    setCollection(nextCollection);
+    setWishlist(nextWishlist);
+    await persistLists(nextCollection, nextWishlist);
+  }
+
+  async function removeRowAndSave(kind, i) {
+    const nextCollection = kind === "collection" ? removeRowAt(collection, i) : collection;
+    const nextWishlist = kind === "wishlist" ? removeRowAt(wishlist, i) : wishlist;
     setCollection(nextCollection);
     setWishlist(nextWishlist);
     await persistLists(nextCollection, nextWishlist);
@@ -1289,7 +1297,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
           rows={collection}
           overlapKeys={collectionOverlapKeys}
           onUpdateRow={(i, field, value) => updateRow(collection, setCollection, i, field, value)}
-          onRemoveRow={(i) => removeRow(setCollection, i)}
+          onRemoveRow={(i) => removeRowAndSave("collection", i)}
           onAddRow={(name, qty) => addRowAndSave("collection", name, qty)}
           onReplaceFile={(file) => replaceFromFile("collection", file, replacePlatform.collection)}
           platform={replacePlatform.collection}
@@ -1305,7 +1313,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
           rows={wishlist}
           overlapKeys={wishlistOverlapKeys}
           onUpdateRow={(i, field, value) => updateRow(wishlist, setWishlist, i, field, value)}
-          onRemoveRow={(i) => removeRow(setWishlist, i)}
+          onRemoveRow={(i) => removeRowAndSave("wishlist", i)}
           onAddRow={(name, qty) => addRowAndSave("wishlist", name, qty)}
           onReplaceFile={(file) => replaceFromFile("wishlist", file, replacePlatform.wishlist)}
           platform={replacePlatform.wishlist}
