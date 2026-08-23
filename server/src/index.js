@@ -198,12 +198,28 @@ async function replaceList(table, friendId, cards) {
       }))
       .filter((c) => c.cardName);
 
+    // Merge duplicate cards (same match key) so CSV re-imports and manual
+    // double-adds don't inflate match counts or show duplicate rows.
+    const merged = [];
+    const byKey = new Map();
+    for (const c of cleaned) {
+      const key = matchKey(c.cardName);
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.qty += c.qty;
+      } else {
+        const row = { cardName: c.cardName, qty: c.qty };
+        byKey.set(key, row);
+        merged.push(row);
+      }
+    }
+
     // Insert in one multi-row statement (chunked to stay well under Postgres's
     // parameter limit) instead of one round-trip per card — much faster for
     // large collections, especially over a pooled connection.
     const CHUNK_SIZE = 500;
-    for (let i = 0; i < cleaned.length; i += CHUNK_SIZE) {
-      const chunk = cleaned.slice(i, i + CHUNK_SIZE);
+    for (let i = 0; i < merged.length; i += CHUNK_SIZE) {
+      const chunk = merged.slice(i, i + CHUNK_SIZE);
       const values = [];
       const placeholders = chunk.map((c, idx) => {
         const base = idx * 4;
@@ -281,6 +297,16 @@ app.get("/api/matches", async (req, res) => {
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
+app.get("/", (req, res) => {
+  res.json({
+    ok: true,
+    message: "MTG Trade API — this server only handles /api routes.",
+    health: "/api/health",
+    app: "Open the React client at http://localhost:5173 (run npm run dev in client/).",
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`MTG trade API listening on http://localhost:${PORT}`);
+  console.log(`Open the app at http://localhost:5173 (run npm run dev in client/)`);
 });
