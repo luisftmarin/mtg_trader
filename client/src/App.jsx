@@ -344,6 +344,7 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [error, setError] = useState("");
   const [editingFriendId, setEditingFriendId] = useState(null);
   const [matches, setMatches] = useState(null);
+  const [matchesContext, setMatchesContext] = useState(null); // "main" | "editor"
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [viewMode, setViewMode] = useState("pair");
   const [selectedFriendName, setSelectedFriendName] = useState(null);
@@ -418,6 +419,7 @@ function MainApp({ identity, onSwitchIdentity }) {
     try {
       const result = await api.getMatches();
       setMatches(result);
+      setMatchesContext(editingFriendId ? "editor" : "main");
       if (priorityFriendName && friends.some((f) => f.name === priorityFriendName)) {
         setSelectedFriendName(priorityFriendName);
       } else if (editingFriend) {
@@ -433,6 +435,7 @@ function MainApp({ identity, onSwitchIdentity }) {
 
   function resetMatches() {
     setMatches(null);
+    setMatchesContext(null);
     if (!editingFriendId) {
       setEditingFriendId(identity.id);
     }
@@ -453,6 +456,7 @@ function MainApp({ identity, onSwitchIdentity }) {
       if (editingFriendId === id) setEditingFriendId(null);
       refreshFriends();
       setMatches(null);
+      setMatchesContext(null);
       if (id === identity.id) {
         window.localStorage.removeItem(IDENTITY_KEY);
         window.localStorage.removeItem(TOKEN_KEY);
@@ -495,6 +499,9 @@ function MainApp({ identity, onSwitchIdentity }) {
   }
 
   const editingFriend = friends.find((f) => f.id === editingFriendId);
+  const showEditorMatches = editingFriend && matches !== null && matchesContext === "editor";
+  const showMainMatches = !editingFriend && matches !== null && matchesContext === "main";
+  const canResetMatches = editingFriend ? showEditorMatches : showMainMatches;
 
   return (
     <div style={{ minHeight: "100vh", background: COLORS.ink, color: COLORS.parchment, fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column" }}>
@@ -748,11 +755,11 @@ function MainApp({ identity, onSwitchIdentity }) {
                   width: isMobile ? "100%" : undefined,
                 }}
               >
-                {matchesLoading ? "Calculating…" : "Calculate group matches"}
+                {matchesLoading ? "Calculating…" : editingFriend ? "Calculate User Matches" : "Calculate group matches"}
               </button>
               <button
                 onClick={resetMatches}
-                disabled={matches === null}
+                disabled={!canResetMatches}
                 title="Clear matches and return to collection/wishlist"
                 style={{
                   background: "none",
@@ -761,8 +768,8 @@ function MainApp({ identity, onSwitchIdentity }) {
                   borderRadius: 4,
                   padding: "10px 14px",
                   fontSize: 12,
-                  cursor: matches === null ? "default" : "pointer",
-                  opacity: matches === null ? 0.5 : 1,
+                  cursor: !canResetMatches ? "default" : "pointer",
+                  opacity: !canResetMatches ? 0.5 : 1,
                   width: isMobile ? "100%" : undefined,
                 }}
               >
@@ -790,9 +797,14 @@ function MainApp({ identity, onSwitchIdentity }) {
 
           {editingFriend ? (
             <>
-              {matches !== null && (
+              {showEditorMatches && (
                 <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: `1px solid ${COLORS.hair}` }}>
-                  <MatchSummary matches={matches} userName={identity.name} priorityFriendName={priorityFriendName} />
+                  <MatchSummary
+                    matches={matches.filter((m) => m.seeker === editingFriend.name || m.owner === editingFriend.name)}
+                    userName={editingFriend.name}
+                    priorityFriendName={priorityFriendName}
+                    label={editingFriend.name}
+                  />
                   <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>
                     {editingFriend.name}'s matches
                   </div>
@@ -833,7 +845,7 @@ function MainApp({ identity, onSwitchIdentity }) {
             <div style={{ border: `1px dashed ${COLORS.hair}`, borderRadius: 6, padding: 40, textAlign: "center", color: COLORS.parchmentDim, fontSize: 13 }}>
               Need at least two traders on the roster before matches can be calculated.
             </div>
-          ) : matches === null ? (
+          ) : !showMainMatches ? (
             <div style={{ border: `1px dashed ${COLORS.hair}`, borderRadius: 6, padding: isMobile ? 24 : 32, color: COLORS.parchmentDim, fontSize: 13, lineHeight: 1.6 }}>
               <div style={{ fontFamily: "'Fraunces', serif", color: COLORS.parchment, fontSize: 16, marginBottom: 10 }}>Ready to find trades?</div>
               <ol style={{ margin: "0 0 0 18px", padding: 0 }}>
@@ -844,7 +856,7 @@ function MainApp({ identity, onSwitchIdentity }) {
             </div>
           ) : (
             <>
-              <MatchSummary matches={matches} userName={identity.name} priorityFriendName={priorityFriendName} />
+              <MatchSummary matches={matches} userName={identity.name} priorityFriendName={priorityFriendName} group />
               {matches.length === 0 ? (
                 <div style={{ color: COLORS.parchmentDim, fontSize: 13 }}>No matches across the current roster.</div>
               ) : (
@@ -1460,9 +1472,10 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName }) 
 const thStyle = { textAlign: "left", padding: "6px 10px", fontSize: 11, color: COLORS.parchmentDim, textTransform: "uppercase", letterSpacing: "0.05em" };
 const tdStyle = { padding: "8px 10px", color: COLORS.parchment };
 
-function MatchSummary({ matches, userName, priorityFriendName }) {
+function MatchSummary({ matches, userName, priorityFriendName, label, group }) {
   if (!matches?.length) return null;
   const stats = buildMatchSummary(matches, userName, priorityFriendName);
+  const who = label || userName;
   return (
     <div
       style={{
@@ -1476,7 +1489,8 @@ function MatchSummary({ matches, userName, priorityFriendName }) {
         lineHeight: 1.5,
       }}
     >
-      <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>{stats.total}</span> potential transfers
+      <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>{stats.total}</span>{" "}
+      {group ? "potential transfers across the group" : `transfers for ${who}`}
       {priorityFriendName && stats.involvingPriority > 0 && (
         <>
           {" "}
@@ -1487,7 +1501,7 @@ function MatchSummary({ matches, userName, priorityFriendName }) {
       {(stats.userCanGet > 0 || stats.userCanGive > 0) && (
         <>
           {" "}
-          · You can get <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace" }}>{stats.userCanGet}</span>, give{" "}
+          · {group ? "You" : who} can get <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace" }}>{stats.userCanGet}</span>, give{" "}
           <span style={{ color: COLORS.gold, fontFamily: "'JetBrains Mono', monospace" }}>{stats.userCanGive}</span>
         </>
       )}
