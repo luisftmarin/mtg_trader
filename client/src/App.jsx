@@ -553,6 +553,15 @@ function MainApp({ identity, onSwitchIdentity }) {
     return overlapKeysBetween(wish, coll);
   }, [editingLists]);
 
+  const rosterFriends = useMemo(
+    () =>
+      [...friends].sort((a, b) => {
+        const byCount = (b.collection_count ?? 0) - (a.collection_count ?? 0);
+        return byCount !== 0 ? byCount : a.name.localeCompare(b.name);
+      }),
+    [friends]
+  );
+
   return (
     <div style={{ minHeight: "100vh", background: COLORS.ink, color: COLORS.parchment, fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column" }}>
       <style>{`
@@ -675,10 +684,10 @@ function MainApp({ identity, onSwitchIdentity }) {
 
           {loadingFriends ? (
             <div style={{ fontSize: 12, color: COLORS.parchmentDim }}>Loading…</div>
-          ) : friends.length === 0 ? (
+          ) : rosterFriends.length === 0 ? (
             <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>No traders yet.</div>
           ) : (
-            friends.map((f) => {
+            rosterFriends.map((f) => {
               const isSelf = f.id === identity.id;
               const canEdit = isSelf || identity.isAdmin;
               return (
