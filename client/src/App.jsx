@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Papa from "papaparse";
-import { Plus, X, Upload, ArrowRight, Download, Users, ChevronDown, LogOut, RefreshCw, Key, Menu } from "lucide-react";
+import { Plus, X, Upload, ArrowRight, Download, Users, ChevronDown, LogOut, RefreshCw, Key, Menu, Star } from "lucide-react";
 import { api } from "./api.js";
 
 const COLORS = {
@@ -60,6 +60,33 @@ function parseCsvText(text, platform) {
       return { cardName: String(row[cardCol]).trim(), qty: Number.isFinite(q) && q > 0 ? q : 1 };
     });
   return mergeCardRows(rows);
+}
+
+function matchInvolvesFriend(match, friendName) {
+  if (!friendName) return false;
+  return match.owner === friendName || match.seeker === friendName;
+}
+
+function sortMatchesByPriority(matches, priorityName) {
+  if (!priorityName) return matches;
+  return [...matches].sort((a, b) => {
+    const aPrio = matchInvolvesFriend(a, priorityName) ? 0 : 1;
+    const bPrio = matchInvolvesFriend(b, priorityName) ? 0 : 1;
+    if (aPrio !== bPrio) return aPrio - bPrio;
+    return a.cardName.localeCompare(b.cardName);
+  });
+}
+
+function sortPairEntries(entries, priorityName) {
+  if (!priorityName) return entries;
+  return [...entries].sort(([keyA], [keyB]) => {
+    const [ownerA, seekerA] = keyA.split("|");
+    const [ownerB, seekerB] = keyB.split("|");
+    const aPrio = ownerA === priorityName || seekerA === priorityName ? 0 : 1;
+    const bPrio = ownerB === priorityName || seekerB === priorityName ? 0 : 1;
+    if (aPrio !== bPrio) return aPrio - bPrio;
+    return keyA.localeCompare(keyB);
+  });
 }
 
 function pipFor(name) {
@@ -303,16 +330,48 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [viewMode, setViewMode] = useState("pair");
   const [selectedFriendName, setSelectedFriendName] = useState(null);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const forceMobilePreview = new URLSearchParams(window.location.search).get("mobile") === "1";
+  const [isMobile, setIsMobile] = useState(() => forceMobilePreview || window.innerWidth <= 768);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const priorityStorageKey = `mtg-trade-ledger:priority:${identity.id}`;
+  const [priorityFriendName, setPriorityFriendName] = useState(() => {
+    try {
+      return window.localStorage.getItem(priorityStorageKey) || "";
+    } catch {
+      return "";
+    }
+  });
+
+  function updatePriorityFriend(name) {
+    setPriorityFriendName(name);
+    try {
+      if (name) window.localStorage.setItem(priorityStorageKey, name);
+      else window.localStorage.removeItem(priorityStorageKey);
+    } catch {
+      // ignore
+    }
+    if (name) setSelectedFriendName(name);
+  }
 
   useEffect(() => {
+    if (priorityFriendName && !friends.some((f) => f.name === priorityFriendName)) {
+      setPriorityFriendName("");
+      try {
+        window.localStorage.removeItem(priorityStorageKey);
+      } catch {
+        // ignore
+      }
+    }
+  }, [friends, priorityFriendName, priorityStorageKey]);
+
+  useEffect(() => {
+    if (forceMobilePreview) return;
     const mq = window.matchMedia("(max-width: 768px)");
     const handler = (e) => setIsMobile(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
-  }, []);
+  }, [forceMobilePreview]);
 
   async function refreshFriends() {
     setLoadingFriends(true);
@@ -334,7 +393,9 @@ function MainApp({ identity, onSwitchIdentity }) {
     try {
       const result = await api.getMatches();
       setMatches(result);
-      if (editingFriend) {
+      if (priorityFriendName && friends.some((f) => f.name === priorityFriendName)) {
+        setSelectedFriendName(priorityFriendName);
+      } else if (editingFriend) {
         setSelectedFriendName(editingFriend.name);
       } else if (result.length && !selectedFriendName) {
         setSelectedFriendName(result[0].seeker);
@@ -343,6 +404,13 @@ function MainApp({ identity, onSwitchIdentity }) {
       setError(e.message);
     }
     setMatchesLoading(false);
+  }
+
+  function resetMatches() {
+    setMatches(null);
+    if (!editingFriendId) {
+      setEditingFriendId(identity.id);
+    }
   }
 
   async function removeFriend(id) {
@@ -367,10 +435,15 @@ function MainApp({ identity, onSwitchIdentity }) {
     return groups;
   }, [matches]);
 
+  const sortedPairEntries = useMemo(
+    () => sortPairEntries(Object.entries(byPair), priorityFriendName),
+    [byPair, priorityFriendName]
+  );
+
   function exportCsv() {
     if (!matches || !matches.length) return;
     const header = "Who Has It,Who Needs It,Card Name,Seeker Needs,Owner Has,Trade Available\n";
-    const rows = matches
+    const rows = sortMatchesByPriority(matches, priorityFriendName)
       .map((m) => [m.owner, m.seeker, `"${m.cardName.replace(/"/g, '""')}"`, m.seekerNeeds, m.ownerHas, m.tradeAvailable].join(","))
       .join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
@@ -549,6 +622,34 @@ function MainApp({ identity, onSwitchIdentity }) {
 
         <main style={{ flex: 1, padding: isMobile ? 16 : 28, overflow: "auto", minWidth: 0 }}>
           <div style={{ marginBottom: 22, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", position: "sticky", top: 0, background: COLORS.ink, zIndex: 10, paddingTop: 2, paddingBottom: 2 }}>
+            {friends.length >= 2 && (
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: COLORS.parchmentDim }}>
+                <Star size={13} color={priorityFriendName ? COLORS.gold : COLORS.parchmentDim} fill={priorityFriendName ? COLORS.gold : "none"} />
+                Priority
+                <select
+                  value={priorityFriendName}
+                  onChange={(e) => updatePriorityFriend(e.target.value)}
+                  style={{
+                    background: COLORS.panelRaised,
+                    border: `1px solid ${priorityFriendName ? COLORS.gold : COLORS.hair}`,
+                    color: priorityFriendName ? COLORS.gold : COLORS.parchment,
+                    borderRadius: 4,
+                    padding: "8px 10px",
+                    fontSize: 12,
+                    minWidth: 140,
+                  }}
+                >
+                  <option value="">None</option>
+                  {friends
+                    .filter((f) => f.id !== identity.id)
+                    .map((f) => (
+                      <option key={f.id} value={f.name}>
+                        {f.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
             <button
               onClick={calculateMatches}
               disabled={matchesLoading || friends.length < 2}
@@ -566,6 +667,23 @@ function MainApp({ identity, onSwitchIdentity }) {
               }}
             >
               {matchesLoading ? "Calculating…" : "Calculate group matches"}
+            </button>
+            <button
+              onClick={resetMatches}
+              disabled={matches === null}
+              title="Clear matches and return to collection/wishlist"
+              style={{
+                background: "none",
+                border: `1px solid ${COLORS.hair}`,
+                color: COLORS.parchmentDim,
+                borderRadius: 4,
+                padding: "10px 14px",
+                fontSize: 12,
+                cursor: matches === null ? "default" : "pointer",
+                opacity: matches === null ? 0.5 : 1,
+              }}
+            >
+              Reset
             </button>
             {editingFriend && (
               <button
@@ -587,11 +705,21 @@ function MainApp({ identity, onSwitchIdentity }) {
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                     <div style={{ flex: 1, minWidth: 280 }}>
                       <div style={{ fontSize: 12, color: COLORS.parchmentDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Can get</div>
-                      <MatchTable rows={matches.filter((m) => m.seeker === editingFriend.name)} peerLabel="Who has it" peerKey="owner" />
+                      <MatchTable
+                        rows={sortMatchesByPriority(matches.filter((m) => m.seeker === editingFriend.name), priorityFriendName)}
+                        peerLabel="Who has it"
+                        peerKey="owner"
+                        priorityFriendName={priorityFriendName}
+                      />
                     </div>
                     <div style={{ flex: 1, minWidth: 280 }}>
                       <div style={{ fontSize: 12, color: COLORS.parchmentDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Can give</div>
-                      <MatchTable rows={matches.filter((m) => m.owner === editingFriend.name)} peerLabel="Who needs it" peerKey="seeker" />
+                      <MatchTable
+                        rows={sortMatchesByPriority(matches.filter((m) => m.owner === editingFriend.name), priorityFriendName)}
+                        peerLabel="Who needs it"
+                        peerKey="seeker"
+                        priorityFriendName={priorityFriendName}
+                      />
                     </div>
                   </div>
                 </div>
@@ -644,17 +772,27 @@ function MainApp({ identity, onSwitchIdentity }) {
                   </div>
 
                   {viewMode === "pair" &&
-                    Object.entries(byPair).map(([key, rows]) => {
+                    sortedPairEntries.map(([key, rows]) => {
                       const [owner, seeker] = key.split("|");
+                      const isPrio = matchInvolvesFriend({ owner, seeker }, priorityFriendName);
                       return (
-                        <div key={key} style={{ marginBottom: 14, border: `1px solid ${COLORS.hair}`, borderRadius: 6, overflow: "hidden" }}>
+                        <div
+                          key={key}
+                          style={{
+                            marginBottom: 14,
+                            border: `1px solid ${isPrio ? COLORS.gold : COLORS.hair}`,
+                            borderRadius: 6,
+                            overflow: "hidden",
+                          }}
+                        >
                           <div style={{ background: COLORS.panel, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Fraunces', serif", fontSize: 14 }}>
+                            {isPrio && <Star size={12} fill={COLORS.gold} color={COLORS.gold} />}
                             {owner} <ArrowRight size={13} color={COLORS.gold} /> {seeker}
                             <span style={{ marginLeft: "auto", fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
                               {rows.length} card{rows.length !== 1 ? "s" : ""}
                             </span>
                           </div>
-                          <MatchTable rows={rows} />
+                          <MatchTable rows={sortMatchesByPriority(rows, priorityFriendName)} priorityFriendName={priorityFriendName} />
                         </div>
                       );
                     })}
@@ -667,23 +805,35 @@ function MainApp({ identity, onSwitchIdentity }) {
                         style={{ marginBottom: 16, background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
                       >
                         {friends.map((f) => (
-                          <option key={f.id}>{f.name}</option>
+                          <option key={f.id}>{f.name}{priorityFriendName === f.name ? " ★" : ""}</option>
                         ))}
                       </select>
                       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                         <div style={{ flex: 1, minWidth: 280 }}>
                           <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{selectedFriendName} can get</div>
-                          <MatchTable rows={matches.filter((m) => m.seeker === selectedFriendName)} peerLabel="Who has it" peerKey="owner" />
+                          <MatchTable
+                            rows={sortMatchesByPriority(matches.filter((m) => m.seeker === selectedFriendName), priorityFriendName)}
+                            peerLabel="Who has it"
+                            peerKey="owner"
+                            priorityFriendName={priorityFriendName}
+                          />
                         </div>
                         <div style={{ flex: 1, minWidth: 280 }}>
                           <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{selectedFriendName} can give</div>
-                          <MatchTable rows={matches.filter((m) => m.owner === selectedFriendName)} peerLabel="Who needs it" peerKey="seeker" />
+                          <MatchTable
+                            rows={sortMatchesByPriority(matches.filter((m) => m.owner === selectedFriendName), priorityFriendName)}
+                            peerLabel="Who needs it"
+                            peerKey="seeker"
+                            priorityFriendName={priorityFriendName}
+                          />
                         </div>
                       </div>
                     </>
                   )}
 
-                  {viewMode === "all" && <MatchTable rows={[...matches].sort((a, b) => a.cardName.localeCompare(b.cardName))} showBoth />}
+                  {viewMode === "all" && (
+                    <MatchTable rows={sortMatchesByPriority(matches, priorityFriendName)} showBoth priorityFriendName={priorityFriendName} />
+                  )}
                 </>
               )}
             </>
@@ -1034,7 +1184,7 @@ function AddCardForm({ onAdd }) {
   );
 }
 
-function MatchTable({ rows, peerLabel, peerKey, showBoth }) {
+function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName }) {
   if (!rows.length) return <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>None right now.</div>;
   return (
     <div style={{ overflowX: "auto" }}>
@@ -1049,18 +1199,25 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((r, i) => (
-          <tr key={i} style={{ borderBottom: `1px solid rgba(51,56,68,0.5)` }}>
+        {rows.map((r, i) => {
+          const isPrio = matchInvolvesFriend(r, priorityFriendName);
+          return (
+          <tr key={i} style={{ borderBottom: `1px solid rgba(51,56,68,0.5)`, background: isPrio ? "rgba(201,162,39,0.06)" : "transparent" }}>
             <td style={tdStyle}>
               <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: PIPS[pipFor(r.cardName)], marginRight: 8 }} />
               {r.cardName}
             </td>
-            {showBoth && <td style={tdStyle}>{r.owner}</td>}
-            {showBoth && <td style={tdStyle}>{r.seeker}</td>}
-            {!showBoth && peerKey && <td style={tdStyle}>{r[peerKey]}</td>}
+            {showBoth && <td style={{ ...tdStyle, color: r.owner === priorityFriendName ? COLORS.gold : COLORS.parchment }}>{r.owner}</td>}
+            {showBoth && <td style={{ ...tdStyle, color: r.seeker === priorityFriendName ? COLORS.gold : COLORS.parchment }}>{r.seeker}</td>}
+            {!showBoth && peerKey && (
+              <td style={{ ...tdStyle, color: r[peerKey] === priorityFriendName ? COLORS.gold : COLORS.parchment, fontWeight: r[peerKey] === priorityFriendName ? 500 : 400 }}>
+                {r[peerKey]}
+              </td>
+            )}
             <td style={{ ...tdStyle, textAlign: "right", fontFamily: "'JetBrains Mono', monospace", color: COLORS.gold }}>{r.tradeAvailable}</td>
           </tr>
-        ))}
+          );
+        })}
       </tbody>
     </table>
     </div>
