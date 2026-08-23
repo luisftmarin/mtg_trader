@@ -1196,14 +1196,11 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
 
   async function replaceFromFile(kind, file, platform) {
     try {
-      setError("");
       const rows = parseCsvText(await file.text(), platform);
       if (kind === "collection") setCollection(rows);
       else setWishlist(rows);
-      return { count: rows.length, fileName: file.name };
     } catch (e) {
       setError(e.message);
-      return null;
     }
   }
 
@@ -1451,16 +1448,6 @@ function SaveChangesButton({ onSave, saving, style }) {
 
 function ImportSection({ platform, onPlatformChange, onReplaceFile, showDeckLinkImport, onLoadDeckUrl, setError, onSave, saving }) {
   const csvInputRef = useRef(null);
-  const [csvHint, setCsvHint] = useState("");
-
-  async function loadCsv(file) {
-    setCsvHint("");
-    setError("");
-    const result = await onReplaceFile(file);
-    if (result) {
-      setCsvHint(`Loaded ${result.count} cards from "${result.fileName}". Hit Save to keep.`);
-    }
-  }
 
   return (
     <div style={{ borderTop: `1px solid ${COLORS.hair}`, padding: "10px 14px 12px", background: COLORS.panel }}>
@@ -1476,10 +1463,7 @@ function ImportSection({ platform, onPlatformChange, onReplaceFile, showDeckLink
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           <select
             value={platform}
-            onChange={(e) => {
-              onPlatformChange(e.target.value);
-              setCsvHint("");
-            }}
+            onChange={(e) => onPlatformChange(e.target.value)}
             style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "6px 8px", fontSize: 12 }}
           >
             {Object.keys(PLATFORM_MAPPINGS).map((p) => (
@@ -1512,15 +1496,11 @@ function ImportSection({ platform, onPlatformChange, onReplaceFile, showDeckLink
             style={{ display: "none" }}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) loadCsv(f);
+              if (f) onReplaceFile(f);
               e.target.value = "";
             }}
           />
           <SaveChangesButton onSave={onSave} saving={saving} />
-        </div>
-        {csvHint && <div style={{ marginTop: 8, fontSize: 11, color: COLORS.gold }}>{csvHint}</div>}
-        <div style={{ marginTop: 6, fontSize: 10, color: COLORS.parchmentDim, lineHeight: 1.4 }}>
-          Replaces the current list — save when you are happy with it.
         </div>
       </div>
 
