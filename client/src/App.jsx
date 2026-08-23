@@ -77,18 +77,6 @@ function sortMatchesByPriority(matches, priorityName) {
   });
 }
 
-function sortPairEntries(entries, priorityName) {
-  if (!priorityName) return entries;
-  return [...entries].sort(([keyA], [keyB]) => {
-    const [ownerA, seekerA] = keyA.split("|");
-    const [ownerB, seekerB] = keyB.split("|");
-    const aPrio = ownerA === priorityName || seekerA === priorityName ? 0 : 1;
-    const bPrio = ownerB === priorityName || seekerB === priorityName ? 0 : 1;
-    if (aPrio !== bPrio) return aPrio - bPrio;
-    return keyA.localeCompare(keyB);
-  });
-}
-
 function buildMatchSummary(matches, userName, priorityName) {
   return {
     total: matches.length,
@@ -431,9 +419,7 @@ function MainApp({ identity, onSwitchIdentity }) {
       const result = await api.getMatches();
       setMatches(result);
       setMatchesContext(editingFriendId ? "editor" : "main");
-      if (priorityFriendName && friends.some((f) => f.name === priorityFriendName)) {
-        setSelectedFriendName(priorityFriendName);
-      } else if (editingFriend) {
+      if (editingFriend) {
         setSelectedFriendName(editingFriend.name);
       } else if (result.length && !selectedFriendName) {
         setSelectedFriendName(result[0].seeker);
@@ -489,15 +475,15 @@ function MainApp({ identity, onSwitchIdentity }) {
     return groups;
   }, [matches]);
 
-  const sortedPairEntries = useMemo(
-    () => sortPairEntries(Object.entries(byPair), priorityFriendName),
-    [byPair, priorityFriendName]
+  const pairEntries = useMemo(
+    () => Object.entries(byPair).sort(([a], [b]) => a.localeCompare(b)),
+    [byPair]
   );
 
   function exportCsv() {
     if (!matches || !matches.length) return;
     const header = "Who Has It,Who Needs It,Card Name,Seeker Needs,Owner Has,Trade Available\n";
-    const rows = sortMatchesByPriority(matches, priorityFriendName)
+    const rows = matches
       .map((m) => [m.owner, m.seeker, `"${m.cardName.replace(/"/g, '""')}"`, m.seekerNeeds, m.ownerHas, m.tradeAvailable].join(","))
       .join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
@@ -719,7 +705,7 @@ function MainApp({ identity, onSwitchIdentity }) {
               paddingBottom: 2,
             }}
           >
-            {friends.length >= 2 && (
+            {friends.length >= 2 && editingFriend && (
               <label
                 style={{
                   display: "flex",
@@ -880,7 +866,7 @@ function MainApp({ identity, onSwitchIdentity }) {
             </div>
           ) : (
             <>
-              <MatchSummary matches={matches} userName={identity.name} priorityFriendName={priorityFriendName} group />
+              <MatchSummary matches={matches} userName={identity.name} group />
               {matches.length === 0 ? (
                 <div style={{ color: COLORS.parchmentDim, fontSize: 13 }}>No matches across the current roster.</div>
               ) : (
@@ -904,27 +890,25 @@ function MainApp({ identity, onSwitchIdentity }) {
                   </div>
 
                   {viewMode === "pair" &&
-                    sortedPairEntries.map(([key, rows]) => {
+                    pairEntries.map(([key, rows]) => {
                       const [owner, seeker] = key.split("|");
-                      const isPrio = matchInvolvesFriend({ owner, seeker }, priorityFriendName);
                       return (
                         <div
                           key={key}
                           style={{
                             marginBottom: 14,
-                            border: `1px solid ${isPrio ? COLORS.gold : COLORS.hair}`,
+                            border: `1px solid ${COLORS.hair}`,
                             borderRadius: 6,
                             overflow: "hidden",
                           }}
                         >
                           <div style={{ background: COLORS.panel, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Fraunces', serif", fontSize: 14 }}>
-                            {isPrio && <Star size={12} fill={COLORS.gold} color={COLORS.gold} />}
                             {owner} <ArrowRight size={13} color={COLORS.gold} /> {seeker}
                             <span style={{ marginLeft: "auto", fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
                               {rows.length} card{rows.length !== 1 ? "s" : ""}
                             </span>
                           </div>
-                          <MatchTable rows={sortMatchesByPriority(rows, priorityFriendName)} priorityFriendName={priorityFriendName} />
+                          <MatchTable rows={rows} />
                         </div>
                       );
                     })}
@@ -937,26 +921,24 @@ function MainApp({ identity, onSwitchIdentity }) {
                         style={{ marginBottom: 16, background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
                       >
                         {friends.map((f) => (
-                          <option key={f.id}>{f.name}{priorityFriendName === f.name ? " ★" : ""}</option>
+                          <option key={f.id}>{f.name}</option>
                         ))}
                       </select>
                       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                         <div style={{ flex: 1, minWidth: 280 }}>
                           <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{selectedFriendName} can get</div>
                           <MatchTable
-                            rows={sortMatchesByPriority(matches.filter((m) => m.seeker === selectedFriendName), priorityFriendName)}
+                            rows={matches.filter((m) => m.seeker === selectedFriendName)}
                             peerLabel="Who has it"
                             peerKey="owner"
-                            priorityFriendName={priorityFriendName}
                           />
                         </div>
                         <div style={{ flex: 1, minWidth: 280 }}>
                           <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>{selectedFriendName} can give</div>
                           <MatchTable
-                            rows={sortMatchesByPriority(matches.filter((m) => m.owner === selectedFriendName), priorityFriendName)}
+                            rows={matches.filter((m) => m.owner === selectedFriendName)}
                             peerLabel="Who needs it"
                             peerKey="seeker"
-                            priorityFriendName={priorityFriendName}
                           />
                         </div>
                       </div>
@@ -964,7 +946,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                   )}
 
                   {viewMode === "all" && (
-                    <MatchTable rows={sortMatchesByPriority(matches, priorityFriendName)} showBoth priorityFriendName={priorityFriendName} />
+                    <MatchTable rows={matches} showBoth />
                   )}
                 </>
               )}
@@ -1520,7 +1502,7 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName, ow
             <td style={{ ...tdStyle, color: alreadyOwned ? COLORS.gold : tdStyle.color }} title={alreadyOwned ? "Already in collection and wishlist" : undefined}>
               <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: PIPS[pipFor(r.cardName)], marginRight: 8 }} />
               {r.cardName}
-              {alreadyOwned && <span style={{ marginLeft: 6, fontSize: 10, color: COLORS.gold }}>owned</span>}
+              {alreadyOwned && <span style={{ marginLeft: 6, fontSize: 10, color: COLORS.gold }}>owned already</span>}
             </td>
             {showBoth && <td style={{ ...tdStyle, color: r.owner === priorityFriendName ? COLORS.gold : COLORS.parchment }}>{r.owner}</td>}
             {showBoth && <td style={{ ...tdStyle, color: r.seeker === priorityFriendName ? COLORS.gold : COLORS.parchment }}>{r.seeker}</td>}
