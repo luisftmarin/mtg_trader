@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Papa from "papaparse";
-import { Plus, X, Upload, ArrowRight, Download, Users, ChevronDown, LogOut, RefreshCw } from "lucide-react";
+import { Plus, X, Upload, ArrowRight, Download, Users, ChevronDown, LogOut, RefreshCw, Key } from "lucide-react";
 import { api } from "./api.js";
 
 const COLORS = {
@@ -87,7 +87,7 @@ export default function App() {
 }
 
 function AuthGate({ onSet }) {
-  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [mode, setMode] = useState("login"); // "login" | "register" | "claim"
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [adminCode, setAdminCode] = useState("");
@@ -101,7 +101,10 @@ function AuthGate({ onSet }) {
     setBusy(true);
     setError("");
     try {
-      const result = mode === "login" ? await api.login(name.trim(), password) : await api.register(name.trim(), password, adminCode);
+      let result;
+      if (mode === "login") result = await api.login(name.trim(), password);
+      else if (mode === "claim") result = await api.claimAccount(name.trim(), password);
+      else result = await api.register(name.trim(), password, adminCode);
       onSet(result.friend, result.token);
     } catch (e2) {
       setError(e2.message);
@@ -115,32 +118,35 @@ function AuthGate({ onSet }) {
       <div style={{ width: 380, border: `1px solid ${COLORS.hair}`, borderRadius: 8, padding: 28, background: COLORS.panel }}>
         <div style={{ fontSize: 11, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 6 }}>Trade Ledger</div>
         <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 22, margin: "0 0 18px" }}>
-          {mode === "login" ? "Sign in" : "Create an account"}
+          {mode === "login" ? "Sign in" : mode === "claim" ? "Claim your existing name" : "Create an account"}
         </h1>
 
         <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
-          {[["login", "Sign in"], ["register", "Create account"]].map(([m, label]) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => {
-                setMode(m);
-                setError("");
-              }}
-              style={{
-                flex: 1,
-                padding: "7px 0",
-                fontSize: 12,
-                borderRadius: 4,
-                border: `1px solid ${mode === m ? COLORS.gold : COLORS.hair}`,
-                background: mode === m ? "rgba(201,162,39,0.12)" : "transparent",
-                color: mode === m ? COLORS.gold : COLORS.parchmentDim,
-                cursor: "pointer",
-              }}
-            >
-              {label}
-            </button>
-          ))}
+          {[["login", "Sign in"], ["register", "Create account"]].map(([m, label]) => {
+            const active = mode === m || (mode === "claim" && m === "login");
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  setMode(m);
+                  setError("");
+                }}
+                style={{
+                  flex: 1,
+                  padding: "7px 0",
+                  fontSize: 12,
+                  borderRadius: 4,
+                  border: `1px solid ${active ? COLORS.gold : COLORS.hair}`,
+                  background: active ? "rgba(201,162,39,0.12)" : "transparent",
+                  color: active ? COLORS.gold : COLORS.parchmentDim,
+                  cursor: "pointer",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -159,6 +165,35 @@ function AuthGate({ onSet }) {
             autoComplete={mode === "login" ? "current-password" : "new-password"}
             style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "9px 10px", color: COLORS.parchment, fontSize: 13 }}
           />
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode("claim");
+                setError("");
+              }}
+              style={{ background: "none", border: "none", color: COLORS.parchmentDim, fontSize: 11, textAlign: "left", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+            >
+              Existing trader without a password? Claim this name
+            </button>
+          )}
+          {mode === "claim" && (
+            <>
+              <div style={{ fontSize: 11, color: COLORS.parchmentDim }}>
+                For traders who joined before passwords existed. Enter your existing name exactly and choose a new password (at least 6 characters).
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                }}
+                style={{ background: "none", border: "none", color: COLORS.parchmentDim, fontSize: 11, textAlign: "left", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+              >
+                Back to sign in
+              </button>
+            </>
+          )}
           {mode === "register" && (
             <>
               <div style={{ fontSize: 11, color: COLORS.parchmentDim }}>At least 6 characters.</div>
@@ -187,7 +222,7 @@ function AuthGate({ onSet }) {
             disabled={busy || !name.trim() || !password}
             style={{ background: COLORS.gold, border: "none", color: COLORS.ink, borderRadius: 4, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: busy ? 0.6 : 1, marginTop: 4 }}
           >
-            {busy ? "…" : mode === "login" ? "Sign in" : "Create account"}
+            {busy ? "…" : mode === "login" ? "Sign in" : mode === "claim" ? "Set password" : "Create account"}
           </button>
         </form>
       </div>
@@ -206,6 +241,7 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [selectedFriendName, setSelectedFriendName] = useState(null);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
@@ -317,11 +353,16 @@ function MainApp({ identity, onSwitchIdentity }) {
               )}
             </div>
           )}
+          <button onClick={() => setShowChangePassword(true)} title="Change password" style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}>
+            <Key size={13} />
+          </button>
           <button onClick={onSwitchIdentity} style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "6px 10px", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
             <LogOut size={12} /> {isMobile ? identity.name : "Switch"}
           </button>
         </div>
       </header>
+
+      {showChangePassword && <ChangePasswordModal onClose={() => setShowChangePassword(false)} />}
 
       {error && (
         <div style={{ background: "rgba(217,115,106,0.12)", color: "#D9736A", padding: isMobile ? "8px 16px" : "8px 28px", fontSize: 12 }}>{error}</div>
@@ -539,12 +580,114 @@ function MainApp({ identity, onSwitchIdentity }) {
   );
 }
 
+function ChangePasswordModal({ onClose }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    if (newPassword !== confirm) {
+      setError("New passwords don't match.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await api.changePassword(currentPassword, newPassword);
+      setSuccess(true);
+    } catch (e2) {
+      setError(e2.message);
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 340, background: COLORS.panel, border: `1px solid ${COLORS.hair}`, borderRadius: 8, padding: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 17, margin: 0 }}>Change password</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: COLORS.parchmentDim, cursor: "pointer", padding: 2 }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {success ? (
+          <div>
+            <div style={{ fontSize: 13, color: COLORS.parchment, marginBottom: 16 }}>Password updated.</div>
+            <button onClick={onClose} style={{ width: "100%", background: COLORS.gold, border: "none", color: COLORS.ink, borderRadius: 4, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              Done
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Current password"
+              type="password"
+              autoComplete="current-password"
+              style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "9px 10px", color: COLORS.parchment, fontSize: 13 }}
+            />
+            <input
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="New password"
+              type="password"
+              autoComplete="new-password"
+              style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "9px 10px", color: COLORS.parchment, fontSize: 13 }}
+            />
+            <input
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Confirm new password"
+              type="password"
+              autoComplete="new-password"
+              style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "9px 10px", color: COLORS.parchment, fontSize: 13 }}
+            />
+            <div style={{ fontSize: 11, color: COLORS.parchmentDim }}>At least 6 characters.</div>
+            {error && <div style={{ fontSize: 12, color: "#D9736A" }}>{error}</div>}
+            <button
+              type="submit"
+              disabled={busy || !currentPassword || !newPassword || !confirm}
+              style={{ background: COLORS.gold, border: "none", color: COLORS.ink, borderRadius: 4, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: busy ? 0.6 : 1, marginTop: 4 }}
+            >
+              {busy ? "…" : "Update password"}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
   const [loading, setLoading] = useState(true);
   const [collection, setCollection] = useState([]);
   const [wishlist, setWishlist] = useState([]);
   const [saving, setSaving] = useState(false);
   const [replacePlatform, setReplacePlatform] = useState({ collection: "Archidekt", wishlist: "Archidekt" });
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
+
+  async function submitResetPassword(e) {
+    e.preventDefault();
+    setResetBusy(true);
+    setError("");
+    try {
+      await api.resetPassword(friend.id, resetPasswordValue);
+      setResetDone(true);
+      setResetPasswordValue("");
+    } catch (e2) {
+      setError(e2.message);
+    }
+    setResetBusy(false);
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -625,8 +768,41 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, setError }) {
       </div>
 
       {isAdminEditing && (
-        <div style={{ fontSize: 11, color: COLORS.gold, marginBottom: 14 }}>
-          You're editing this as an admin — {friend.name} didn't make this change themselves.
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: COLORS.gold, marginBottom: 8 }}>
+            You're editing this as an admin — {friend.name} didn't make this change themselves.
+          </div>
+          {!showResetPassword ? (
+            <button
+              type="button"
+              onClick={() => setShowResetPassword(true)}
+              style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "6px 10px", fontSize: 11, cursor: "pointer" }}
+            >
+              Reset {friend.name}'s password
+            </button>
+          ) : resetDone ? (
+            <div style={{ fontSize: 12, color: COLORS.parchment }}>Password reset. Let {friend.name} know their new one.</div>
+          ) : (
+            <form onSubmit={submitResetPassword} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input
+                value={resetPasswordValue}
+                onChange={(e) => setResetPasswordValue(e.target.value)}
+                placeholder="New password for them"
+                type="text"
+                style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hair}`, borderRadius: 4, padding: "6px 8px", color: COLORS.parchment, fontSize: 12 }}
+              />
+              <button
+                type="submit"
+                disabled={resetBusy || resetPasswordValue.length < 6}
+                style={{ background: COLORS.gold, border: "none", color: COLORS.ink, borderRadius: 4, padding: "6px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer", opacity: resetBusy ? 0.6 : 1 }}
+              >
+                {resetBusy ? "…" : "Set"}
+              </button>
+              <button type="button" onClick={() => setShowResetPassword(false)} style={{ background: "none", border: "none", color: COLORS.parchmentDim, fontSize: 11, cursor: "pointer" }}>
+                Cancel
+              </button>
+            </form>
+          )}
         </div>
       )}
 
