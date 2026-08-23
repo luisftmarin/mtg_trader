@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Papa from "papaparse";
-import { Plus, X, Upload, ArrowRight, Download, Users, ChevronDown, LogOut, RefreshCw, Key } from "lucide-react";
+import { Plus, X, Upload, ArrowRight, Download, Users, ChevronDown, LogOut, RefreshCw, Key, Menu } from "lucide-react";
 import { api } from "./api.js";
 
 const COLORS = {
@@ -317,11 +317,7 @@ function MainApp({ identity, onSwitchIdentity }) {
       const result = await api.getMatches();
       setMatches(result);
       if (editingFriend) {
-        // Jump straight to this trader's matches instead of leaving them
-        // stuck on the editor until they manually cancel out of it.
         setSelectedFriendName(editingFriend.name);
-        setViewMode("friend");
-        setEditingFriendId(null);
       } else if (result.length && !selectedFriendName) {
         setSelectedFriendName(result[0].seeker);
       }
@@ -386,10 +382,14 @@ function MainApp({ identity, onSwitchIdentity }) {
               onClick={() => setSidebarOpen(true)}
               style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchment, borderRadius: 4, padding: "6px 8px", cursor: "pointer", flexShrink: 0 }}
             >
-              <Users size={16} />
+              <Menu size={16} />
             </button>
           )}
-          <div style={{ minWidth: 0 }}>
+          <div
+            onClick={() => setEditingFriendId(null)}
+            style={{ minWidth: 0, cursor: "pointer" }}
+            title="Back to main page"
+          >
             <div style={{ fontSize: 10, letterSpacing: "0.14em", color: COLORS.gold, textTransform: "uppercase", marginBottom: 2 }}>Trade with Friends</div>
             <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: isMobile ? 18 : 26, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {isMobile ? "Binder Exchange" : "Group Binder Exchange"}
@@ -530,7 +530,7 @@ function MainApp({ identity, onSwitchIdentity }) {
         </aside>
 
         <main style={{ flex: 1, padding: isMobile ? 16 : 28, overflow: "auto", minWidth: 0 }}>
-          <div style={{ marginBottom: 22 }}>
+          <div style={{ marginBottom: 22, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", position: "sticky", top: 0, background: COLORS.ink, zIndex: 10, paddingTop: 2, paddingBottom: 2 }}>
             <button
               onClick={calculateMatches}
               disabled={matchesLoading || friends.length < 2}
@@ -549,20 +549,47 @@ function MainApp({ identity, onSwitchIdentity }) {
             >
               {matchesLoading ? "Calculating…" : "Calculate group matches"}
             </button>
+            {editingFriend && (
+              <button
+                onClick={() => setEditingFriendId(null)}
+                style={{ background: "none", border: `1px solid ${COLORS.hair}`, color: COLORS.parchmentDim, borderRadius: 4, padding: "10px 14px", fontSize: 12, cursor: "pointer" }}
+              >
+                ← Back to main page
+              </button>
+            )}
           </div>
 
           {editingFriend ? (
-            <FriendEditor
-              friend={editingFriend}
-              isAdminEditing={editingFriend.id !== identity.id}
-              onClose={() => setEditingFriendId(null)}
-              onSaved={() => {
-                refreshFriends();
-                setMatches(null);
-                setEditingFriendId(null);
-              }}
-              setError={setError}
-            />
+            <>
+              <FriendEditor
+                friend={editingFriend}
+                isAdminEditing={editingFriend.id !== identity.id}
+                onClose={() => setEditingFriendId(null)}
+                onSaved={() => {
+                  refreshFriends();
+                  setMatches(null);
+                  setEditingFriendId(null);
+                }}
+                setError={setError}
+              />
+              {matches !== null && (
+                <div style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid ${COLORS.hair}` }}>
+                  <div style={{ fontSize: 12, color: COLORS.gold, marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    {editingFriend.name}'s matches
+                  </div>
+                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                    <div style={{ flex: 1, minWidth: 280 }}>
+                      <div style={{ fontSize: 12, color: COLORS.parchmentDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Can get</div>
+                      <MatchTable rows={matches.filter((m) => m.seeker === editingFriend.name)} peerLabel="Who has it" peerKey="owner" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 280 }}>
+                      <div style={{ fontSize: 12, color: COLORS.parchmentDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Can give</div>
+                      <MatchTable rows={matches.filter((m) => m.owner === editingFriend.name)} peerLabel="Who needs it" peerKey="seeker" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           ) : friends.length < 2 ? (
             <div style={{ border: `1px dashed ${COLORS.hair}`, borderRadius: 6, padding: 40, textAlign: "center", color: COLORS.parchmentDim, fontSize: 13 }}>
               Need at least two traders on the roster before matches can be calculated.
