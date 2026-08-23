@@ -133,6 +133,7 @@ app.get("/api/friends", async (req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT f.id, f.name,
+        (f.password_hash IS NOT NULL) AS has_password,
         COALESCE(c.cnt, 0)::int AS collection_count,
         COALESCE(w.cnt, 0)::int AS wishlist_count
       FROM friends f

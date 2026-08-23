@@ -94,6 +94,15 @@ function AuthGate({ onSet }) {
   const [showAdminCode, setShowAdminCode] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [unclaimed, setUnclaimed] = useState(null);
+
+  useEffect(() => {
+    if (mode !== "claim" || unclaimed !== null) return;
+    api
+      .listFriends()
+      .then((friends) => setUnclaimed(friends.filter((f) => !f.has_password)))
+      .catch(() => setUnclaimed([]));
+  }, [mode]);
 
   async function submit(e) {
     e.preventDefault();
@@ -149,6 +158,46 @@ function AuthGate({ onSet }) {
           })}
         </div>
 
+        {mode === "claim" && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: COLORS.parchmentDim, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Pick your name
+            </div>
+            {unclaimed === null ? (
+              <div style={{ fontSize: 12, color: COLORS.parchmentDim }}>Loading…</div>
+            ) : unclaimed.length === 0 ? (
+              <div style={{ fontSize: 12, color: COLORS.parchmentDim, fontStyle: "italic" }}>
+                No unclaimed traders found — everyone already has a password, or the roster is empty.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 160, overflowY: "auto" }}>
+                {unclaimed.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setName(f.name)}
+                    style={{
+                      textAlign: "left",
+                      background: name === f.name ? "rgba(201,162,39,0.12)" : COLORS.panelRaised,
+                      border: `1px solid ${name === f.name ? COLORS.gold : COLORS.hair}`,
+                      borderRadius: 4,
+                      padding: "8px 10px",
+                      color: name === f.name ? COLORS.gold : COLORS.parchment,
+                      fontSize: 13,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {f.name}
+                    <span style={{ float: "right", fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {f.collection_count} coll · {f.wishlist_count} wish
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <input
             value={name}
@@ -178,21 +227,18 @@ function AuthGate({ onSet }) {
             </button>
           )}
           {mode === "claim" && (
-            <>
-              <div style={{ fontSize: 11, color: COLORS.parchmentDim }}>
-                For traders who joined before passwords existed. Enter your existing name exactly and choose a new password (at least 6 characters).
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("login");
-                  setError("");
-                }}
-                style={{ background: "none", border: "none", color: COLORS.parchmentDim, fontSize: 11, textAlign: "left", cursor: "pointer", padding: 0, textDecoration: "underline" }}
-              >
-                Back to sign in
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setError("");
+                setName("");
+                setUnclaimed(null);
+              }}
+              style={{ background: "none", border: "none", color: COLORS.parchmentDim, fontSize: 11, textAlign: "left", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+            >
+              Back to sign in
+            </button>
           )}
           {mode === "register" && (
             <>
