@@ -1207,6 +1207,18 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
     await persistLists(nextCollection, nextWishlist);
   }
 
+  async function clearListAndSave(kind) {
+    if (kind === "collection") {
+      if (collection.length === 0) return;
+      setCollection([]);
+      await persistLists([], wishlist);
+      return;
+    }
+    if (wishlist.length === 0) return;
+    setWishlist([]);
+    await persistLists(collection, []);
+  }
+
   async function save() {
     await persistLists(collection, wishlist);
   }
@@ -1314,6 +1326,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
           showDeckLinkImport
           onLoadDeckUrl={replaceFromDeckUrl}
           setError={setError}
+          onClearAll={() => clearListAndSave("collection")}
           onSave={save}
           saving={saving}
         />
@@ -1327,6 +1340,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
           onReplaceFile={(file) => replaceFromFile("wishlist", file, replacePlatform.wishlist)}
           platform={replacePlatform.wishlist}
           onPlatformChange={(p) => setReplacePlatform((prev) => ({ ...prev, wishlist: p }))}
+          onClearAll={() => clearListAndSave("wishlist")}
           onSave={save}
           saving={saving}
         />
@@ -1335,8 +1349,9 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
   );
 }
 
-function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, onAddRow, onReplaceFile, platform, onPlatformChange, showDeckLinkImport, onLoadDeckUrl, setError, onSave, saving }) {
+function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, onAddRow, onReplaceFile, platform, onPlatformChange, showDeckLinkImport, onLoadDeckUrl, setError, onSave, onClearAll, saving }) {
   const [filter, setFilter] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     return rows
@@ -1346,11 +1361,33 @@ function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, o
 
   return (
     <div style={{ flex: 1, minWidth: 320, border: `1px solid ${COLORS.hair}`, borderRadius: 6 }}>
-      <div style={{ background: COLORS.panel, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ background: COLORS.panel, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <span style={{ fontFamily: "'Fraunces', serif", fontSize: 14 }}>{title}</span>
-        <span style={{ fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
-          {filter.trim() ? `${filtered.length} / ${rows.length}` : rows.length} cards
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, color: COLORS.parchmentDim, fontFamily: "'JetBrains Mono', monospace" }}>
+            {filter.trim() ? `${filtered.length} / ${rows.length}` : rows.length} cards
+          </span>
+          {onClearAll && rows.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setConfirmClear(true)}
+              disabled={saving}
+              style={{
+                background: "none",
+                border: `1px solid ${COLORS.hair}`,
+                color: COLORS.parchmentDim,
+                borderRadius: 4,
+                padding: "3px 8px",
+                fontSize: 11,
+                cursor: saving ? "not-allowed" : "pointer",
+                opacity: saving ? 0.6 : 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Clear all
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ padding: "8px 14px", borderBottom: `1px solid ${COLORS.hair}` }}>
@@ -1433,6 +1470,19 @@ function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, o
         onSave={onSave}
         saving={saving}
       />
+
+      {confirmClear && (
+        <ConfirmModal
+          title={`Clear ${title.toLowerCase()}?`}
+          message={`This permanently deletes all ${rows.length} cards from the ${title.toLowerCase()} and overwrites the saved list. This cannot be undone.`}
+          confirmLabel={`Clear ${title.toLowerCase()}`}
+          onConfirm={async () => {
+            setConfirmClear(false);
+            await onClearAll();
+          }}
+          onCancel={() => setConfirmClear(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1518,6 +1568,9 @@ function ImportSection({ platform, onPlatformChange, onReplaceFile, showDeckLink
             }}
           />
           <SaveChangesButton onSave={onSave} saving={saving} />
+        </div>
+        <div style={{ marginTop: 6, fontSize: 10, color: COLORS.parchmentDim, lineHeight: 1.4 }}>
+          Save changes overwrites the current list.
         </div>
       </div>
 
