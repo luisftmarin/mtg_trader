@@ -355,7 +355,10 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [viewMode, setViewMode] = useState("pair");
   const [selectedFriendName, setSelectedFriendName] = useState(null);
   const forceMobilePreview = new URLSearchParams(window.location.search).get("mobile") === "1";
-  const [isMobile, setIsMobile] = useState(() => forceMobilePreview || window.innerWidth <= 768);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (forceMobilePreview) return true;
+    return window.matchMedia("(max-width: 768px)").matches;
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [toast, setToast] = useState(null);
@@ -396,6 +399,7 @@ function MainApp({ identity, onSwitchIdentity }) {
     if (forceMobilePreview) return;
     const mq = window.matchMedia("(max-width: 768px)");
     const handler = (e) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [forceMobilePreview]);
@@ -531,14 +535,12 @@ function MainApp({ identity, onSwitchIdentity }) {
   );
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${isMobile ? " is-mobile" : ""}`}>
       <header className="app-header">
         <div className="header-cluster">
-          {isMobile && (
-            <IconButton onClick={() => setSidebarOpen(true)} aria-label="Open roster">
-              <Menu size={16} />
-            </IconButton>
-          )}
+          <IconButton className="roster-toggle" onClick={() => setSidebarOpen(true)} aria-label="Open roster">
+            <Menu size={16} />
+          </IconButton>
           <div className="app-header__brand" onClick={() => setEditingFriendId(null)} title="Back to main page">
             <div className="app-kicker">Trade with Friends</div>
             <h1 className="app-title">{isMobile ? "Binder Exchange" : "Group Binder Exchange"}</h1>
@@ -586,9 +588,9 @@ function MainApp({ identity, onSwitchIdentity }) {
       {error && <div className="warning-banner warning-banner--flush">{error}</div>}
 
       <div className="layout">
-        {isMobile && sidebarOpen && <div className="scrim" onClick={() => setSidebarOpen(false)} />}
+        {sidebarOpen && <div className="scrim" onClick={() => setSidebarOpen(false)} />}
 
-        <aside className={`roster ${isMobile && sidebarOpen ? "is-open" : ""}`}>
+        <aside className={`roster${sidebarOpen ? " is-open" : ""}`}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div className="roster__label">
               <Users size={13} /> Roster
@@ -597,11 +599,9 @@ function MainApp({ identity, onSwitchIdentity }) {
               <IconButton bare onClick={refreshFriends} title="Refresh">
                 <RefreshCw size={13} />
               </IconButton>
-              {isMobile && (
-                <IconButton bare onClick={() => setSidebarOpen(false)} title="Close">
-                  <X size={16} />
-                </IconButton>
-              )}
+              <IconButton className="roster-close" bare onClick={() => setSidebarOpen(false)} title="Close">
+                <X size={16} />
+              </IconButton>
             </div>
           </div>
 
@@ -624,7 +624,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                   }}
                 >
                   <div className="avatar" aria-hidden>
-                    {f.name.slice(0, 1).toUpperCase()}
+                    {f.name.trim().slice(0, 2).toUpperCase()}
                   </div>
                   <div className="roster-item__meta">
                     <div className="roster-item__name">
