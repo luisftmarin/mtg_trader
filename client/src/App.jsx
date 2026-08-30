@@ -653,31 +653,31 @@ function MainApp({ identity, onSwitchIdentity }) {
 
   function addAllToTrade() {
     const me = identity.name;
+    const peer = priorityFriendName;
+    if (!peer || peer === me) {
+      setToast("Select a Priority trader first.");
+      return;
+    }
     if (!matches?.length) {
       setToast("Calculate matches first.");
       return;
     }
 
-    let rows = matches.filter((m) => packageInvolvesUser(m, me));
-    if (editingFriend && editingFriend.name !== me) {
-      const other = editingFriend.name;
-      rows = rows.filter((m) => m.owner === other || m.seeker === other);
-    }
+    const rows = matches.filter(
+      (m) => packageInvolvesUser(m, me) && matchInvolvesFriend(m, peer)
+    );
     if (!rows.length) {
-      setToast("No cards you can give or get in these matches.");
+      setToast(`No cards you can give or get with ${peer}.`);
       return;
     }
 
     const giveMap = new Map();
     const getMap = new Map();
-    const peers = new Set();
     for (const row of rows) {
       const qty = Math.max(1, Number(row.tradeAvailable) || 1);
-      if (row.seeker === me && row.owner && row.owner !== me) {
-        peers.add(row.owner);
+      if (row.seeker === me && row.owner === peer) {
         mergePackageLine(getMap, row.cardName, qty);
-      } else if (row.owner === me && row.seeker && row.seeker !== me) {
-        peers.add(row.seeker);
+      } else if (row.owner === me && row.seeker === peer) {
         mergePackageLine(giveMap, row.cardName, qty);
       }
     }
@@ -685,16 +685,14 @@ function MainApp({ identity, onSwitchIdentity }) {
     const give = Array.from(giveMap.values());
     const get = Array.from(getMap.values());
     if (!give.length && !get.length) {
-      setToast("No cards you can give or get in these matches.");
+      setToast(`No cards you can give or get with ${peer}.`);
       return;
     }
 
-    setPackagePeer(peers.size === 1 ? [...peers][0] : "the group");
+    setPackagePeer(peer);
     setPackageGive(give);
     setPackageGet(get);
-    setToast(
-      `Added ${give.length} you give, ${get.length} you get${peers.size === 1 ? ` with ${[...peers][0]}` : ""}.`
-    );
+    setToast(`Added ${give.length} you give, ${get.length} you get with ${peer}.`);
   }
 
   function packageHasCard(row) {
@@ -935,8 +933,17 @@ function MainApp({ identity, onSwitchIdentity }) {
               {editingFriend && (
                 <Button
                   onClick={addAllToTrade}
-                  disabled={!matches || matchesContext !== "editor"}
-                  title="Add every card you can give or get in these matches"
+                  disabled={
+                    !matches ||
+                    matchesContext !== "editor" ||
+                    !priorityFriendName ||
+                    priorityFriendName === identity.name
+                  }
+                  title={
+                    !priorityFriendName || priorityFriendName === identity.name
+                      ? "Select a Priority trader first"
+                      : `Add every card you can give or get with ${priorityFriendName}`
+                  }
                 >
                   Add all to trade
                 </Button>
