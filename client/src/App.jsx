@@ -639,6 +639,64 @@ function MainApp({ identity, onSwitchIdentity }) {
     setter((prev) => prev.filter((l) => matchKey(l.cardName) !== matchKey(cardName)));
   }
 
+  function mergePackageLine(map, cardName, qty) {
+    const key = matchKey(cardName);
+    const add = Math.max(1, qty);
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, { cardName, qty: add, maxQty: add });
+      return;
+    }
+    existing.maxQty += add;
+    existing.qty = Math.min(existing.maxQty, existing.qty + add);
+  }
+
+  function addAllToTrade() {
+    const me = identity.name;
+    if (!matches?.length) {
+      setToast("Calculate matches first.");
+      return;
+    }
+
+    let rows = matches.filter((m) => packageInvolvesUser(m, me));
+    if (editingFriend && editingFriend.name !== me) {
+      const other = editingFriend.name;
+      rows = rows.filter((m) => m.owner === other || m.seeker === other);
+    }
+    if (!rows.length) {
+      setToast("No cards you can give or get in these matches.");
+      return;
+    }
+
+    const giveMap = new Map();
+    const getMap = new Map();
+    const peers = new Set();
+    for (const row of rows) {
+      const qty = Math.max(1, Number(row.tradeAvailable) || 1);
+      if (row.seeker === me && row.owner && row.owner !== me) {
+        peers.add(row.owner);
+        mergePackageLine(getMap, row.cardName, qty);
+      } else if (row.owner === me && row.seeker && row.seeker !== me) {
+        peers.add(row.seeker);
+        mergePackageLine(giveMap, row.cardName, qty);
+      }
+    }
+
+    const give = Array.from(giveMap.values());
+    const get = Array.from(getMap.values());
+    if (!give.length && !get.length) {
+      setToast("No cards you can give or get in these matches.");
+      return;
+    }
+
+    setPackagePeer(peers.size === 1 ? [...peers][0] : "the group");
+    setPackageGive(give);
+    setPackageGet(get);
+    setToast(
+      `Added ${give.length} you give, ${get.length} you get${peers.size === 1 ? ` with ${[...peers][0]}` : ""}.`
+    );
+  }
+
   function packageHasCard(row) {
     if (!packagePeer || !packageInvolvesUser(row, identity.name)) return false;
     const key = matchKey(row.cardName);
@@ -872,8 +930,17 @@ function MainApp({ identity, onSwitchIdentity }) {
             )}
             <div className="toolbar-actions">
               <Button variant="ghost" onClick={calculateMatches} disabled={matchesLoading || friends.length < 2}>
-                {matchesLoading ? "Calculating…" : editingFriend ? "Calculate User Matches" : "Calculate group matches"}
+                {matchesLoading ? "Calculating…" : editingFriend ? "Calculate Matches" : "Calculate group matches"}
               </Button>
+              {editingFriend && (
+                <Button
+                  onClick={addAllToTrade}
+                  disabled={!matches || matchesContext !== "editor"}
+                  title="Add every card you can give or get in these matches"
+                >
+                  Add all to trade
+                </Button>
+              )}
               <Button onClick={resetMatches} disabled={!canResetMatches} title="Clear matches and return to collection/wishlist">
                 Reset
               </Button>
