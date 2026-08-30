@@ -5,6 +5,7 @@ import { pool } from "./db.js";
 import { computeMatches } from "./matching.js";
 import { hashPassword, verifyPassword, signToken, requireAuth } from "./auth.js";
 import { importDeckFromUrl } from "./deckImport.js";
+import { lookupPrices } from "./prices.js";
 
 dotenv.config();
 
@@ -303,6 +304,17 @@ app.get("/api/matches", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Could not compute matches." });
+  }
+});
+
+app.post("/api/prices", async (req, res) => {
+  try {
+    const names = Array.isArray(req.body?.names) ? req.body.names : [];
+    const prices = await lookupPrices(names.slice(0, 300));
+    res.json({ prices });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not load Cardmarket prices." });
   }
 });
 

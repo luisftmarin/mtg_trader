@@ -436,6 +436,11 @@ textarea {
   border-color: var(--muted);
 }
 
+.icon-btn.is-in-package {
+  color: var(--gold);
+  border-color: rgba(212, 176, 58, 0.45);
+}
+
 .icon-btn--bare {
   width: 32px;
   height: 32px;
@@ -541,6 +546,12 @@ select.field {
   padding: 10px 12px;
   color: var(--parchment);
   border-bottom: 1px solid rgba(58, 65, 80, 0.5);
+}
+
+.data-table__add {
+  width: 44px;
+  padding-right: 8px !important;
+  text-align: right;
 }
 
 .data-table .is-overlap {
@@ -902,6 +913,114 @@ select.field {
   font-weight: 500;
 }
 
+.package-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 16;
+  margin-top: 20px;
+  padding: 14px 16px 12px;
+  background: var(--ink-deep);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.package-dock__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.package-dock__peer {
+  font-size: 13px;
+  color: var(--parchment);
+}
+
+.package-dock__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.package-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.package-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.package-line__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.package-line__eur {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--gold);
+  min-width: 4.5em;
+  text-align: right;
+}
+
+.package-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  font-size: 13px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hair);
+}
+
+.package-avg {
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.package-cash {
+  margin-left: auto;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.package-cash.is-even {
+  color: var(--muted);
+  border: 1px solid var(--hair);
+}
+
+.package-cash.is-pay {
+  color: var(--parchment);
+  background: var(--danger-dim);
+  border: 1px solid rgba(196, 92, 84, 0.4);
+}
+
+.package-cash.is-back {
+  color: var(--gold);
+  background: var(--gold-dim);
+  border: 1px solid rgba(212, 176, 58, 0.4);
+}
+
+.package-note {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
 .toast {
   position: fixed;
   bottom: 24px;
@@ -993,5 +1112,13 @@ select.field {
 
   .toolbar-actions {
     flex-direction: column;
+  }
+
+  .package-cols {
+    grid-template-columns: 1fr;
+  }
+
+  .package-cash {
+    margin-left: 0;
   }
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Papa from "papaparse";
-import { Plus, X, Upload, ArrowRight, Download, Users, LogOut, RefreshCw, Key, Menu, Star, Search, Link2 } from "lucide-react";
+import { Plus, X, Upload, ArrowRight, Download, Users, LogOut, RefreshCw, Key, Menu, Star, Search, Link2, Copy } from "lucide-react";
 import { api } from "./api.js";
 import { Button, IconButton, TextField, Panel, Badge } from "./ui.jsx";
 
@@ -75,6 +75,48 @@ function buildMatchSummary(matches, userName, priorityName) {
     userCanGet: matches.filter((m) => m.seeker === userName).length,
     userCanGive: matches.filter((m) => m.owner === userName).length,
   };
+}
+
+const eurFmt = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
+
+function formatEur(n) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return eurFmt.format(n);
+}
+
+function lineUnitPrice(line, prices) {
+  const eur = prices[matchKey(line.cardName)]?.eur;
+  return Number.isFinite(eur) ? eur : null;
+}
+
+function sumSide(lines, prices) {
+  let total = 0;
+  let qtyPriced = 0;
+  for (const line of lines) {
+    const unit = lineUnitPrice(line, prices);
+    if (unit == null) continue;
+    total += unit * line.qty;
+    qtyPriced += line.qty;
+  }
+  return { total, qtyPriced };
+}
+
+function packageStats(give, get, prices) {
+  const given = sumSide(give, prices);
+  const gotten = sumSide(get, prices);
+  const qtyAll = given.qtyPriced + gotten.qtyPriced;
+  const average = qtyAll > 0 ? (given.total + gotten.total) / qtyAll : null;
+  return {
+    giveTotal: given.total,
+    getTotal: gotten.total,
+    average,
+    cash: gotten.total - given.total,
+    hasPriced: qtyAll > 0,
+  };
+}
+
+function packageInvolvesUser(row, userName) {
+  return !!userName && (row.owner === userName || row.seeker === userName);
 }
 
 function overlapKeysBetween(listA, listB) {
@@ -364,6 +406,10 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [toast, setToast] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [editingLists, setEditingLists] = useState(null);
+  const [packagePeer, setPackagePeer] = useState("");
+  const [packageGive, setPackageGive] = useState([]);
+  const [packageGet, setPackageGet] = useState([]);
+  const [packagePrices, setPackagePrices] = useState({});
   const priorityStorageKey = `mtg-trade-ledger:priority:${identity.id}`;
   const [priorityFriendName, setPriorityFriendName] = useState(() => {
     try {
@@ -514,6 +560,141 @@ function MainApp({ identity, onSwitchIdentity }) {
     URL.revokeObjectURL(url);
   }
 
+  const packageNamesKey = [...packageGive, ...packageGet].map((l) => l.cardName).join("|");
+
+  useEffect(() => {
+    if (!packageNamesKey) return;
+    const names = packageNamesKey.split("|").filter(Boolean);
+    let cancelled = false;
+    api
+      .getPrices(names)
+      .then((data) => {
+        if (!cancelled) setPackagePrices((prev) => ({ ...prev, ...(data.prices || {}) }));
+      })
+      .catch(() => {
+        if (!cancelled) setToast("Could not load Cardmarket prices.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [packageNamesKey]);
+
+  function clearPackage() {
+    setPackagePeer("");
+    setPackageGive([]);
+    setPackageGet([]);
+  }
+
+  function addToPackage(row) {
+    const me = identity.name;
+    if (!packageInvolvesUser(row, me)) return;
+    const side = row.seeker === me ? "get" : "give";
+    const peer = side === "get" ? row.owner : row.seeker;
+    if (!peer || peer === me) return;
+    const maxQty = Math.max(1, Number(row.tradeAvailable) || 1);
+    const cardName = row.cardName;
+
+    if (packagePeer && packagePeer !== peer) {
+      const ok = window.confirm(
+        `This package is with ${packagePeer}. Switch to ${peer} and start a new package?`
+      );
+      if (!ok) return;
+      setPackagePeer(peer);
+      setPackageGive(side === "give" ? [{ cardName, qty: 1, maxQty }] : []);
+      setPackageGet(side === "get" ? [{ cardName, qty: 1, maxQty }] : []);
+      return;
+    }
+
+    setPackagePeer(peer);
+    const setter = side === "give" ? setPackageGive : setPackageGet;
+    setter((prev) => {
+      const key = matchKey(cardName);
+      const i = prev.findIndex((l) => matchKey(l.cardName) === key);
+      if (i >= 0) {
+        const next = [...prev];
+        next[i] = {
+          ...next[i],
+          qty: Math.min(Math.max(next[i].maxQty, maxQty), next[i].qty + 1),
+          maxQty: Math.max(next[i].maxQty, maxQty),
+        };
+        return next;
+      }
+      return [...prev, { cardName, qty: 1, maxQty }];
+    });
+  }
+
+  function updatePackageQty(side, cardName, qty) {
+    const setter = side === "give" ? setPackageGive : setPackageGet;
+    setter((prev) =>
+      prev.map((l) =>
+        matchKey(l.cardName) === matchKey(cardName)
+          ? { ...l, qty: Math.min(l.maxQty, Math.max(1, qty)) }
+          : l
+      )
+    );
+  }
+
+  function removePackageLine(side, cardName) {
+    const setter = side === "give" ? setPackageGive : setPackageGet;
+    setter((prev) => prev.filter((l) => matchKey(l.cardName) !== matchKey(cardName)));
+  }
+
+  function packageHasCard(row) {
+    if (!packagePeer || !packageInvolvesUser(row, identity.name)) return false;
+    const key = matchKey(row.cardName);
+    if (row.seeker === identity.name && row.owner === packagePeer) {
+      return packageGet.some((l) => matchKey(l.cardName) === key);
+    }
+    if (row.owner === identity.name && row.seeker === packagePeer) {
+      return packageGive.some((l) => matchKey(l.cardName) === key);
+    }
+    return false;
+  }
+
+  async function copyPackageSummary() {
+    const stats = packageStats(packageGive, packageGet, packagePrices);
+    const list = (title, lines) => {
+      if (!lines.length) return `${title}\n(none)`;
+      return `${title}\n${lines
+        .map((l) => {
+          const unit = lineUnitPrice(l, packagePrices);
+          return `- ${l.qty}× ${l.cardName} — ${formatEur(unit != null ? unit * l.qty : null)}`;
+        })
+        .join("\n")}`;
+    };
+    let cashLine = "Even";
+    if (stats.hasPriced && Math.abs(stats.cash) >= 0.005) {
+      cashLine = stats.cash > 0 ? `You pay ${formatEur(stats.cash)}` : `You get back ${formatEur(-stats.cash)}`;
+    }
+    const text = [
+      `Trade with ${packagePeer}`,
+      "",
+      list("You give", packageGive),
+      "",
+      list("You get", packageGet),
+      "",
+      `You give ${formatEur(stats.hasPriced ? stats.giveTotal : null)} · You get ${formatEur(stats.hasPriced ? stats.getTotal : null)}`,
+      stats.average != null ? `Ø ${formatEur(stats.average)}` : null,
+      cashLine,
+      "",
+      "Approx. Cardmarket € (one printing).",
+    ]
+      .filter((line) => line != null)
+      .join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setToast("Package copied.");
+    } catch {
+      setToast("Could not copy package.");
+    }
+  }
+
+  useEffect(() => {
+    if (!packageGive.length && !packageGet.length && packagePeer) {
+      setPackagePeer("");
+    }
+  }, [packageGive.length, packageGet.length, packagePeer]);
+
   const editingFriend = friends.find((f) => f.id === editingFriendId);
   const showEditorMatches = editingFriend && matches !== null && matchesContext === "editor";
   const showMainMatches = !editingFriend && matches !== null && matchesContext === "main";
@@ -533,6 +714,13 @@ function MainApp({ identity, onSwitchIdentity }) {
       }),
     [friends]
   );
+
+  const packageOpen = packageGive.length > 0 || packageGet.length > 0;
+  const matchPackageProps = {
+    identityName: identity.name,
+    onAddToPackage: addToPackage,
+    packageHasCard,
+  };
 
   return (
     <div className={`app-shell${isMobile ? " is-mobile" : ""}`}>
@@ -660,7 +848,7 @@ function MainApp({ identity, onSwitchIdentity }) {
           </div>
         </aside>
 
-        <main className="main">
+        <main className={`main${packageOpen ? " has-package" : ""}`}>
           <div className="toolbar">
             {friends.length >= 2 && editingFriend && (
               <label className="toolbar-label">
@@ -719,6 +907,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                         peerKey="owner"
                         priorityFriendName={priorityFriendName}
                         ownedOverlapKeys={editingOverlapKeys}
+                        {...matchPackageProps}
                       />
                     </div>
                     <div>
@@ -728,6 +917,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                         peerLabel="Who needs it"
                         peerKey="seeker"
                         priorityFriendName={priorityFriendName}
+                        {...matchPackageProps}
                       />
                     </div>
                   </div>
@@ -793,7 +983,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                               {rows.length} card{rows.length !== 1 ? "s" : ""}
                             </span>
                           </div>
-                          <MatchTable rows={rows} />
+                          <MatchTable rows={rows} {...matchPackageProps} />
                         </Panel>
                       );
                     })}
@@ -817,6 +1007,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                             rows={matches.filter((m) => m.seeker === selectedFriendName)}
                             peerLabel="Who has it"
                             peerKey="owner"
+                            {...matchPackageProps}
                           />
                         </div>
                         <div>
@@ -825,6 +1016,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                             rows={matches.filter((m) => m.owner === selectedFriendName)}
                             peerLabel="Who needs it"
                             peerKey="seeker"
+                            {...matchPackageProps}
                           />
                         </div>
                       </div>
@@ -832,11 +1024,23 @@ function MainApp({ identity, onSwitchIdentity }) {
                   )}
 
                   {viewMode === "all" && (
-                    <MatchTable rows={matches} showBoth />
+                    <MatchTable rows={matches} showBoth {...matchPackageProps} />
                   )}
                 </>
               )}
             </>
+          )}
+          {packageOpen && (
+            <TradePackageDock
+              peer={packagePeer}
+              give={packageGive}
+              get={packageGet}
+              prices={packagePrices}
+              onQty={updatePackageQty}
+              onRemove={removePackageLine}
+              onClear={clearPackage}
+              onCopy={copyPackageSummary}
+            />
           )}
         </main>
       </div>
@@ -1551,12 +1755,23 @@ function OwnerPeerCell({ primary, others, priorityFriendName }) {
   );
 }
 
-function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName, ownedOverlapKeys }) {
+function MatchTable({
+  rows,
+  peerLabel,
+  peerKey,
+  showBoth,
+  priorityFriendName,
+  ownedOverlapKeys,
+  identityName,
+  onAddToPackage,
+  packageHasCard,
+}) {
   const aggregateOwners = peerKey === "owner" || showBoth;
   const displayRows = aggregateOwners
     ? aggregateCanGetRows(rows, priorityFriendName, showBoth)
     : rows;
   if (!displayRows.length) return <div className="table-empty">None right now.</div>;
+  const showAdd = typeof onAddToPackage === "function" && !!identityName;
   return (
     <div className="table-scroll">
     <table className="data-table">
@@ -1567,12 +1782,15 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName, ow
           {showBoth && <th>Needs it</th>}
           {!showBoth && peerLabel && <th>{peerLabel}</th>}
           <th style={{ textAlign: "right" }}>Qty</th>
+          {showAdd && <th className="data-table__add" />}
         </tr>
       </thead>
       <tbody>
         {displayRows.map((r, i) => {
           const isPrio = matchInvolvesFriend(r, priorityFriendName);
           const alreadyOwned = ownedOverlapKeys?.has(matchKey(r.cardName));
+          const canAdd = showAdd && packageInvolvesUser(r, identityName);
+          const added = canAdd && packageHasCard?.(r);
           return (
           <tr key={i} className={alreadyOwned ? "is-overlap" : isPrio ? "is-priority" : undefined}>
             <td className={alreadyOwned ? "is-gold" : undefined} title={alreadyOwned ? "Already in collection and wishlist" : undefined}>
@@ -1597,11 +1815,106 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName, ow
               </td>
             )}
             <td className="qty">{r.tradeAvailable}</td>
+            {showAdd && (
+              <td className="data-table__add">
+                {canAdd && (
+                  <IconButton
+                    bare
+                    className={added ? "is-in-package" : undefined}
+                    onClick={() => onAddToPackage(r)}
+                    title={added ? "Add another copy to package" : "Add to package"}
+                    aria-label={added ? "Add another copy to package" : `Add ${r.cardName} to package`}
+                  >
+                    <Plus size={14} />
+                  </IconButton>
+                )}
+              </td>
+            )}
           </tr>
           );
         })}
       </tbody>
     </table>
+    </div>
+  );
+}
+
+function TradePackageDock({ peer, give, get, prices, onQty, onRemove, onClear, onCopy }) {
+  const stats = packageStats(give, get, prices);
+  let cashLabel = "Even";
+  let cashClass = "package-cash is-even";
+  if (stats.hasPriced && Math.abs(stats.cash) >= 0.005) {
+    if (stats.cash > 0) {
+      cashLabel = `You pay ${formatEur(stats.cash)}`;
+      cashClass = "package-cash is-pay";
+    } else {
+      cashLabel = `You get back ${formatEur(-stats.cash)}`;
+      cashClass = "package-cash is-back";
+    }
+  }
+
+  function renderLines(side, lines) {
+    if (!lines.length) {
+      return <div className="muted" style={{ fontSize: 12, fontStyle: "italic" }}>None yet.</div>;
+    }
+    return lines.map((line) => {
+      const unit = lineUnitPrice(line, prices);
+      const lineTotal = unit != null ? unit * line.qty : null;
+      return (
+        <div key={line.cardName} className="package-line">
+          <div className="package-line__name">{line.cardName}</div>
+          <input
+            className="field field--compact field--qty"
+            type="number"
+            min="1"
+            max={line.maxQty}
+            value={line.qty}
+            onChange={(e) => onQty(side, line.cardName, parseInt(e.target.value, 10) || 1)}
+            aria-label={`Quantity for ${line.cardName}`}
+          />
+          <div className="package-line__eur">{formatEur(lineTotal)}</div>
+          <IconButton bare onClick={() => onRemove(side, line.cardName)} title="Remove">
+            <X size={14} />
+          </IconButton>
+        </div>
+      );
+    });
+  }
+
+  return (
+    <div className="package-dock">
+      <div className="package-dock__head">
+        <div>
+          <div className="roster__label">Trade package</div>
+          <div className="package-dock__peer">with {peer || "—"}</div>
+        </div>
+        <div className="package-dock__actions">
+          <Button onClick={onCopy}>
+            <Copy size={13} /> Copy
+          </Button>
+          <Button onClick={onClear}>Clear</Button>
+        </div>
+      </div>
+      <div className="package-cols">
+        <div>
+          <div className="section-label section-label--muted">You give</div>
+          {renderLines("give", give)}
+        </div>
+        <div>
+          <div className="section-label section-label--muted">You get</div>
+          {renderLines("get", get)}
+        </div>
+      </div>
+      <div className="package-summary">
+        <span>
+          You give <strong>{formatEur(stats.hasPriced ? stats.giveTotal : null)}</strong>
+          {" · "}
+          You get <strong>{formatEur(stats.hasPriced ? stats.getTotal : null)}</strong>
+        </span>
+        <span className="package-avg">Ø {formatEur(stats.average)}</span>
+        <span className={cashClass}>{cashLabel}</span>
+      </div>
+      <div className="package-note">Approx. Cardmarket € for one printing. Session only — refresh clears this.</div>
     </div>
   );
 }
