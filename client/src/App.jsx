@@ -885,6 +885,19 @@ function MainApp({ identity, onSwitchIdentity }) {
             </div>
           </div>
 
+          {packageOpen && (
+            <TradePackageDock
+              peer={packagePeer}
+              give={packageGive}
+              get={packageGet}
+              prices={packagePrices}
+              onQty={updatePackageQty}
+              onRemove={removePackageLine}
+              onClear={clearPackage}
+              onCopy={copyPackageSummary}
+            />
+          )}
+
           {editingFriend ? (
             <>
               {showEditorMatches && (
@@ -1029,18 +1042,6 @@ function MainApp({ identity, onSwitchIdentity }) {
                 </>
               )}
             </>
-          )}
-          {packageOpen && (
-            <TradePackageDock
-              peer={packagePeer}
-              give={packageGive}
-              get={packageGet}
-              prices={packagePrices}
-              onQty={updatePackageQty}
-              onRemove={removePackageLine}
-              onClear={clearPackage}
-              onCopy={copyPackageSummary}
-            />
           )}
         </main>
       </div>
@@ -1782,7 +1783,7 @@ function MatchTable({
           {showBoth && <th>Needs it</th>}
           {!showBoth && peerLabel && <th>{peerLabel}</th>}
           <th style={{ textAlign: "right" }}>Qty</th>
-          {showAdd && <th className="data-table__add" />}
+          {showAdd && <th className="data-table__add">Add to Trade</th>}
         </tr>
       </thead>
       <tbody>
@@ -1822,8 +1823,8 @@ function MatchTable({
                     bare
                     className={added ? "is-in-package" : undefined}
                     onClick={() => onAddToPackage(r)}
-                    title={added ? "Add another copy to package" : "Add to package"}
-                    aria-label={added ? "Add another copy to package" : `Add ${r.cardName} to package`}
+                    title={added ? "Already in package — add another copy" : "Add to Trade"}
+                    aria-label={added ? "Add another copy to package" : `Add ${r.cardName} to trade`}
                   >
                     <Plus size={14} />
                   </IconButton>

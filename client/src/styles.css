@@ -549,9 +549,10 @@ select.field {
 }
 
 .data-table__add {
-  width: 44px;
-  padding-right: 8px !important;
+  width: 7.5rem;
+  white-space: nowrap;
   text-align: right;
+  padding-right: 8px !important;
 }
 
 .data-table .is-overlap {
@@ -915,14 +916,14 @@ select.field {
 
 .package-dock {
   position: sticky;
-  bottom: 0;
+  top: 0;
   z-index: 16;
-  margin-top: 20px;
+  margin: 0 0 20px;
   padding: 14px 16px 12px;
   background: var(--ink-deep);
   border: 1px solid var(--gold);
   border-radius: var(--radius);
-  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 
 .package-dock__head {
