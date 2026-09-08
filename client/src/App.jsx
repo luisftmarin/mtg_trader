@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import Papa from "papaparse";
 import { Plus, X, Upload, ArrowRight, Download, Users, LogOut, RefreshCw, Key, Menu, Star, Search, Link2 } from "lucide-react";
 import { api } from "./api.js";
@@ -140,6 +141,83 @@ async function fetchCardSuggestions(query) {
   if (!res.ok) return [];
   const data = await res.json();
   return data.data || [];
+}
+
+const cardImageCache = new Map();
+
+async function fetchCardImage(name) {
+  const key = matchKey(name);
+  if (!key) return null;
+  if (cardImageCache.has(key)) return cardImageCache.get(key);
+  const front = String(name || "").trim().split("//")[0].trim();
+  try {
+    const res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(front)}`);
+    if (!res.ok) {
+      cardImageCache.set(key, null);
+      return null;
+    }
+    const card = await res.json();
+    const url = card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal || null;
+    cardImageCache.set(key, url);
+    return url;
+  } catch {
+    cardImageCache.set(key, null);
+    return null;
+  }
+}
+
+function CardHover({ name, className = "", children }) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState(null);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const timerRef = useRef(null);
+  const tokenRef = useRef(0);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  if (!name || !String(name).trim()) return children;
+
+  function place(e) {
+    const width = 220;
+    const height = 310;
+    const x = e.clientX + 18 + width > window.innerWidth ? e.clientX - width - 12 : e.clientX + 18;
+    const y = e.clientY + height > window.innerHeight - 8 ? window.innerHeight - height - 8 : e.clientY - 24;
+    setPos({ x: Math.max(8, x), y: Math.max(8, y) });
+  }
+
+  function onEnter(e) {
+    place(e);
+    clearTimeout(timerRef.current);
+    const token = ++tokenRef.current;
+    timerRef.current = setTimeout(async () => {
+      const img = await fetchCardImage(name);
+      if (tokenRef.current !== token) return;
+      setUrl(img);
+      setOpen(!!img);
+    }, 180);
+  }
+
+  function onMove(e) {
+    if (open) place(e);
+  }
+
+  function onLeave() {
+    clearTimeout(timerRef.current);
+    tokenRef.current += 1;
+    setOpen(false);
+  }
+
+  return (
+    <span className={`card-hover ${className}`.trim()} onMouseEnter={onEnter} onMouseMove={onMove} onMouseLeave={onLeave}>
+      {children}
+      {open &&
+        url &&
+        createPortal(
+          <img className="card-hover__img" src={url} alt="" style={{ left: pos.x, top: pos.y }} />,
+          document.body
+        )}
+    </span>
+  );
 }
 
 function pipFor(name) {
@@ -528,10 +606,13 @@ function MainApp({ identity, onSwitchIdentity }) {
   const rosterFriends = useMemo(
     () =>
       [...friends].sort((a, b) => {
+        const aSelf = a.id === identity.id ? 0 : 1;
+        const bSelf = b.id === identity.id ? 0 : 1;
+        if (aSelf !== bSelf) return aSelf - bSelf;
         const byCount = (b.collection_count ?? 0) - (a.collection_count ?? 0);
         return byCount !== 0 ? byCount : a.name.localeCompare(b.name);
       }),
-    [friends]
+    [friends, identity.id]
   );
 
   return (
@@ -1219,13 +1300,15 @@ function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, o
               return (
               <tr key={index} className={isOverlap ? "is-overlap" : undefined}>
                 <td>
-                  <TextField
-                    compact
-                    value={row.cardName}
-                    onChange={(e) => onUpdateRow(index, "name", e.target.value)}
-                    title={isOverlap ? "Also on your other list" : undefined}
-                    className={isOverlap ? "is-overlap" : undefined}
-                  />
+                  <CardHover name={row.cardName} className="card-hover--fill">
+                    <TextField
+                      compact
+                      value={row.cardName}
+                      onChange={(e) => onUpdateRow(index, "name", e.target.value)}
+                      title={isOverlap ? "Also on your other list" : undefined}
+                      className={isOverlap ? "is-overlap" : undefined}
+                    />
+                  </CardHover>
                 </td>
                 <td>
                   <TextField
@@ -1472,30 +1555,33 @@ function AddCardForm({ onAdd }) {
   return (
     <form onSubmit={submit} className={`add-card${showSuggestions && suggestions.length ? " is-open" : ""}`}>
       <div ref={wrapRef} style={{ flex: 1, position: "relative", overflow: "visible" }}>
-        <TextField
-          compact
-          value={cardName}
-          onChange={(e) => {
-            setCardName(e.target.value);
-            setShowSuggestions(true);
-          }}
-          onFocus={() => setShowSuggestions(true)}
-          onKeyDown={onKeyDown}
-          placeholder="Card name"
-          autoComplete="off"
-        />
+        <CardHover name={cardName} className="card-hover--fill">
+          <TextField
+            compact
+            value={cardName}
+            onChange={(e) => {
+              setCardName(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onKeyDown={onKeyDown}
+            placeholder="Card name"
+            autoComplete="off"
+          />
+        </CardHover>
         {showSuggestions && suggestions.length > 0 && (
           <div className="suggestions">
             {suggestions.map((name, i) => (
-              <button
-                key={name}
-                type="button"
-                className={i === activeSuggestion ? "is-active" : undefined}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => pickSuggestion(name)}
-              >
-                {name}
-              </button>
+              <CardHover key={name} name={name} className="card-hover--fill">
+                <button
+                  type="button"
+                  className={i === activeSuggestion ? "is-active" : undefined}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pickSuggestion(name)}
+                >
+                  {name}
+                </button>
+              </CardHover>
             ))}
           </div>
         )}
@@ -1577,7 +1663,7 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName, ow
           <tr key={i} className={alreadyOwned ? "is-overlap" : isPrio ? "is-priority" : undefined}>
             <td className={alreadyOwned ? "is-gold" : undefined} title={alreadyOwned ? "Already in collection and wishlist" : undefined}>
               <span className="pip" style={{ background: PIPS[pipFor(r.cardName)] }} />
-              {r.cardName}
+              <CardHover name={r.cardName}>{r.cardName}</CardHover>
               {alreadyOwned && <span className="tag">owned already</span>}
             </td>
             {showBoth && (

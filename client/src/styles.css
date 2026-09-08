@@ -777,6 +777,11 @@ select.field {
   box-shadow: var(--shadow);
 }
 
+.suggestions .card-hover--fill {
+  display: block;
+  width: 100%;
+}
+
 .suggestions button {
   display: block;
   width: 100%;
@@ -793,6 +798,25 @@ select.field {
 .suggestions button.is-active,
 .suggestions button:hover {
   background: var(--gold-dim);
+}
+
+.card-hover {
+  display: inline;
+}
+
+.card-hover--fill {
+  display: block;
+}
+
+.card-hover__img {
+  position: fixed;
+  z-index: 80;
+  width: 220px;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  border: 1px solid var(--hair);
 }
 
 .pair-card {
