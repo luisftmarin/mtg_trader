@@ -606,10 +606,13 @@ function MainApp({ identity, onSwitchIdentity }) {
   const rosterFriends = useMemo(
     () =>
       [...friends].sort((a, b) => {
+        const aSelf = a.id === identity.id ? 0 : 1;
+        const bSelf = b.id === identity.id ? 0 : 1;
+        if (aSelf !== bSelf) return aSelf - bSelf;
         const byCount = (b.collection_count ?? 0) - (a.collection_count ?? 0);
         return byCount !== 0 ? byCount : a.name.localeCompare(b.name);
       }),
-    [friends]
+    [friends, identity.id]
   );
 
   return (
