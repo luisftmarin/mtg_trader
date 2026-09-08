@@ -426,12 +426,13 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
   const [error, setError] = useState("");
-  const [editingFriendId, setEditingFriendId] = useState(null);
+  const [mainTab, setMainTab] = useState("trades");
+  const [binderFriendId, setBinderFriendId] = useState(identity.id);
+  const [binderVisited, setBinderVisited] = useState(false);
   const [matches, setMatches] = useState(null);
-  const [matchesContext, setMatchesContext] = useState(null); // "main" | "editor"
   const [matchesLoading, setMatchesLoading] = useState(false);
-  const [viewMode, setViewMode] = useState("pair");
-  const [selectedFriendName, setSelectedFriendName] = useState(null);
+  const [viewMode, setViewMode] = useState("mine");
+  const [selectedFriendName, setSelectedFriendName] = useState(identity.name);
   const forceMobilePreview = new URLSearchParams(window.location.search).get("mobile") === "1";
   const [isMobile, setIsMobile] = useState(() => {
     if (forceMobilePreview) return true;
@@ -441,7 +442,6 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [toast, setToast] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [editingLists, setEditingLists] = useState(null);
   const priorityStorageKey = `mtg-trade-ledger:priority:${identity.id}`;
   const [priorityFriendName, setPriorityFriendName] = useState(() => {
     try {
@@ -502,31 +502,49 @@ function MainApp({ identity, onSwitchIdentity }) {
     refreshFriends();
   }, []);
 
+  const friendsSignature = friends
+    .map((f) => `${f.id}:${f.collection_count}:${f.wishlist_count}`)
+    .join("|");
+
   async function calculateMatches() {
+    if (friends.length < 2) return;
     setMatchesLoading(true);
     setError("");
     try {
       const result = await api.getMatches();
       setMatches(result);
-      setMatchesContext(editingFriendId ? "editor" : "main");
-      if (editingFriend) {
-        setSelectedFriendName(editingFriend.name);
-      } else if (result.length && !selectedFriendName) {
-        setSelectedFriendName(result[0].seeker);
-      }
+      setSelectedFriendName((prev) => prev || identity.name);
     } catch (e) {
       setError(e.message);
     }
     setMatchesLoading(false);
   }
 
-  function resetMatches() {
-    setMatches(null);
-    setMatchesContext(null);
-    if (!editingFriendId) {
-      setEditingFriendId(identity.id);
+  useEffect(() => {
+    if (loadingFriends) return;
+    if (friends.length < 2) {
+      setMatches(null);
+      return;
     }
-  }
+    let cancelled = false;
+    setMatchesLoading(true);
+    api
+      .getMatches()
+      .then((result) => {
+        if (cancelled) return;
+        setMatches(result);
+        setSelectedFriendName((prev) => prev || identity.name);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setMatchesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [friendsSignature, loadingFriends, identity.name]);
 
   function requestRemoveFriend(id) {
     const friend = friends.find((f) => f.id === id);
@@ -547,10 +565,9 @@ function MainApp({ identity, onSwitchIdentity }) {
     setConfirmDelete(null);
     try {
       await api.deleteFriend(id);
-      if (editingFriendId === id) setEditingFriendId(null);
+      if (binderFriendId === id) setBinderFriendId(identity.id);
       refreshFriends();
       setMatches(null);
-      setMatchesContext(null);
       if (id === identity.id) {
         window.localStorage.removeItem(IDENTITY_KEY);
         window.localStorage.removeItem(TOKEN_KEY);
@@ -572,10 +589,15 @@ function MainApp({ identity, onSwitchIdentity }) {
     return groups;
   }, [matches]);
 
-  const pairEntries = useMemo(
-    () => Object.entries(byPair).sort(([a], [b]) => a.localeCompare(b)),
-    [byPair]
-  );
+  const pairEntries = useMemo(() => {
+    const me = identity.name;
+    return Object.entries(byPair).sort(([a], [b]) => {
+      const aMine = a.split("|").includes(me) ? 0 : 1;
+      const bMine = b.split("|").includes(me) ? 0 : 1;
+      if (aMine !== bMine) return aMine - bMine;
+      return a.localeCompare(b);
+    });
+  }, [byPair, identity.name]);
 
   function exportCsv() {
     if (!matches || !matches.length) return;
@@ -592,16 +614,23 @@ function MainApp({ identity, onSwitchIdentity }) {
     URL.revokeObjectURL(url);
   }
 
-  const editingFriend = friends.find((f) => f.id === editingFriendId);
-  const showEditorMatches = editingFriend && matches !== null && matchesContext === "editor";
-  const showMainMatches = !editingFriend && matches !== null && matchesContext === "main";
-  const canResetMatches = editingFriend ? showEditorMatches : showMainMatches;
-  const editingOverlapKeys = useMemo(() => {
-    if (!editingLists) return new Set();
-    const coll = editingLists.collection.map((c) => ({ cardName: c.card_name, qty: c.qty }));
-    const wish = editingLists.wishlist.map((c) => ({ cardName: c.card_name, qty: c.qty }));
-    return overlapKeysBetween(wish, coll);
-  }, [editingLists]);
+  const selfFriend = friends.find((f) => f.id === identity.id);
+  const binderFriend = friends.find((f) => f.id === binderFriendId) || selfFriend;
+  const onTrades = mainTab === "trades";
+
+  function showTrades() {
+    setMainTab("trades");
+  }
+
+  function showBinder(friendId = binderFriendId || identity.id) {
+    setBinderFriendId(friendId);
+    setBinderVisited(true);
+    setMainTab("binder");
+  }
+  const myMatches = useMemo(
+    () => (matches || []).filter((m) => m.seeker === identity.name || m.owner === identity.name),
+    [matches, identity.name]
+  );
 
   const rosterFriends = useMemo(
     () =>
@@ -622,7 +651,7 @@ function MainApp({ identity, onSwitchIdentity }) {
           <IconButton className="roster-toggle" onClick={() => setSidebarOpen(true)} aria-label="Open roster">
             <Menu size={16} />
           </IconButton>
-          <div className="app-header__brand" onClick={() => setEditingFriendId(null)} title="Back to main page">
+          <div className="app-header__brand" onClick={showTrades} title="Trades">
             <div className="app-kicker">Trade with Friends</div>
             <h1 className="app-title">{isMobile ? "Binder Exchange" : "Group Binder Exchange"}</h1>
           </div>
@@ -697,10 +726,10 @@ function MainApp({ identity, onSwitchIdentity }) {
               return (
                 <div
                   key={f.id}
-                  className={`roster-item ${editingFriendId === f.id ? "is-selected" : ""} ${!canEdit ? "is-disabled" : ""}`}
+                  className={`roster-item ${!onTrades && binderFriendId === f.id ? "is-selected" : ""} ${!canEdit ? "is-disabled" : ""}`}
                   onClick={() => {
                     if (!canEdit) return;
-                    setEditingFriendId(f.id);
+                    showBinder(f.id);
                     if (isMobile) setSidebarOpen(false);
                   }}
                 >
@@ -743,7 +772,15 @@ function MainApp({ identity, onSwitchIdentity }) {
 
         <main className="main">
           <div className="toolbar">
-            {friends.length >= 2 && editingFriend && (
+            <div className="segmented toolbar-tabs">
+              <button type="button" className={onTrades ? "is-active" : ""} onClick={showTrades}>
+                Trades
+              </button>
+              <button type="button" className={!onTrades ? "is-active" : ""} onClick={() => showBinder()}>
+                Binder
+              </button>
+            </div>
+            {onTrades && friends.length >= 2 && (
               <label className="toolbar-label">
                 <Star size={13} color={priorityFriendName ? "var(--gold)" : "var(--muted)"} fill={priorityFriendName ? "var(--gold)" : "none"} />
                 Priority
@@ -763,105 +800,102 @@ function MainApp({ identity, onSwitchIdentity }) {
                 </select>
               </label>
             )}
-            <div className="toolbar-actions">
-              <Button variant="ghost" onClick={calculateMatches} disabled={matchesLoading || friends.length < 2}>
-                {matchesLoading ? "Calculating…" : editingFriend ? "Calculate User Matches" : "Calculate group matches"}
-              </Button>
-              <Button onClick={resetMatches} disabled={!canResetMatches} title="Clear matches and return to collection/wishlist">
-                Reset
-              </Button>
-              {editingFriend && (
-                <Button onClick={() => setEditingFriendId(null)}>
-                  ← Back to main page
-                </Button>
-              )}
-            </div>
+            {onTrades && (
+              <div className="toolbar-actions">
+                {friends.length >= 2 && (
+                  <Button variant="ghost" onClick={calculateMatches} disabled={matchesLoading}>
+                    {matchesLoading ? "Refreshing…" : "Refresh trades"}
+                  </Button>
+                )}
+                {matches?.length > 0 && (
+                  <Button onClick={exportCsv}>
+                    <Download size={13} /> Export CSV
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
-          {editingFriend ? (
-            <>
-              {showEditorMatches && (
-                <div className="editor-matches">
-                  <MatchSummary
-                    matches={matches.filter((m) => m.seeker === editingFriend.name || m.owner === editingFriend.name)}
-                    userName={editingFriend.name}
-                    priorityFriendName={priorityFriendName}
-                    label={editingFriend.name}
-                  />
-                  <div className="section-label" style={{ marginBottom: 14 }}>
-                    {editingFriend.name}'s matches
-                  </div>
-                  <div className="split">
-                    <div>
-                      <div className="section-label section-label--muted">Can get</div>
-                      <MatchTable
-                        rows={sortMatchesByPriority(matches.filter((m) => m.seeker === editingFriend.name), priorityFriendName)}
-                        peerLabel="Who has it"
-                        peerKey="owner"
-                        priorityFriendName={priorityFriendName}
-                        ownedOverlapKeys={editingOverlapKeys}
-                      />
-                    </div>
-                    <div>
-                      <div className="section-label section-label--muted">Can give</div>
-                      <MatchTable
-                        rows={sortMatchesByPriority(matches.filter((m) => m.owner === editingFriend.name), priorityFriendName)}
-                        peerLabel="Who needs it"
-                        peerKey="seeker"
-                        priorityFriendName={priorityFriendName}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-              <FriendEditor
-                friend={editingFriend}
-                isAdminEditing={editingFriend.id !== identity.id}
-                onClose={() => {
-                  setEditingFriendId(null);
-                  setEditingLists(null);
-                }}
-                onListsChange={setEditingLists}
-                onSaved={() => {
-                  refreshFriends();
-                  setToast("Changes saved.");
-                }}
-                setError={setError}
-              />
-            </>
-          ) : friends.length < 2 ? (
+          <div style={{ display: onTrades ? undefined : "none" }}>
+          {friends.length < 2 ? (
             <div className="empty">
               Need at least two traders on the roster before matches can be calculated.
             </div>
-          ) : !showMainMatches ? (
+          ) : matchesLoading && matches === null ? (
+            <div className="empty">Finding trades…</div>
+          ) : matches === null ? (
             <div className="empty">
-              <div className="panel__title" style={{ marginBottom: 10, color: "var(--parchment)" }}>Ready to find trades?</div>
-              <ol style={{ margin: "0 0 0 18px", padding: 0 }}>
-                <li>Click your name in the roster to add your collection and wishlist.</li>
-                <li>Import a CSV from Archidekt, or add cards manually.</li>
-                <li>Once at least two traders have lists, hit <strong style={{ color: "var(--gold)" }}>Calculate group matches</strong>.</li>
-              </ol>
+              Could not load trades. Try <strong style={{ color: "var(--gold)" }}>Refresh trades</strong>.
             </div>
           ) : (
             <>
-              <MatchSummary matches={matches} userName={identity.name} group />
+              {(!selfFriend?.collection_count && !selfFriend?.wishlist_count) && (
+                <div className="notice" style={{ marginBottom: 16 }}>
+                  Your binder is empty. Open the <strong>Binder</strong> tab and add a collection or wishlist so the group can match with you.
+                </div>
+              )}
+              {selfFriend?.wishlist_count === 0 && selfFriend?.collection_count > 0 && viewMode === "mine" && (
+                <div className="notice" style={{ marginBottom: 16 }}>
+                  Your wishlist is empty, so you will not show up as needing cards. Add wants in the Binder tab.
+                </div>
+              )}
+
+              {viewMode === "mine" ? (
+                <MatchSummary
+                  matches={myMatches}
+                  userName={identity.name}
+                  priorityFriendName={priorityFriendName}
+                  mine
+                />
+              ) : (
+                <MatchSummary matches={matches} userName={identity.name} priorityFriendName={priorityFriendName} group />
+              )}
+
               {matches.length === 0 ? (
                 <div style={{ color: "var(--muted)", fontSize: 13 }}>No matches across the current roster.</div>
               ) : (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 16 }}>
-                    <Button onClick={exportCsv}>
-                      <Download size={13} /> Export CSV
-                    </Button>
-                  </div>
-
                   <div className="segmented" style={{ marginBottom: 18 }}>
-                    {[["pair", "By trade pair"], ["friend", "By trader"], ["all", "Full list"]].map(([v, label]) => (
+                    {[
+                      ["mine", "My trades"],
+                      ["pair", "By pair"],
+                      ["friend", "By trader"],
+                      ["all", "Full list"],
+                    ].map(([v, label]) => (
                       <button key={v} className={viewMode === v ? "is-active" : ""} onClick={() => setViewMode(v)}>
                         {label}
                       </button>
                     ))}
                   </div>
+
+                  {viewMode === "mine" && (
+                    <div className="split">
+                      <div>
+                        <div className="section-label">You get</div>
+                        <MatchTable
+                          rows={sortMatchesByPriority(
+                            matches.filter((m) => m.seeker === identity.name),
+                            priorityFriendName
+                          )}
+                          peerLabel="Who has it"
+                          peerKey="owner"
+                          priorityFriendName={priorityFriendName}
+                        />
+                      </div>
+                      <div>
+                        <div className="section-label">You give</div>
+                        <MatchTable
+                          rows={sortMatchesByPriority(
+                            matches.filter((m) => m.owner === identity.name),
+                            priorityFriendName
+                          )}
+                          peerLabel="Who needs it"
+                          peerKey="seeker"
+                          priorityFriendName={priorityFriendName}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {viewMode === "pair" &&
                     pairEntries.map(([key, rows]) => {
@@ -874,7 +908,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                               {rows.length} card{rows.length !== 1 ? "s" : ""}
                             </span>
                           </div>
-                          <MatchTable rows={rows} />
+                          <MatchTable rows={rows} priorityFriendName={priorityFriendName} />
                         </Panel>
                       );
                     })}
@@ -883,7 +917,7 @@ function MainApp({ identity, onSwitchIdentity }) {
                     <>
                       <select
                         className="field field--compact"
-                        value={selectedFriendName || ""}
+                        value={selectedFriendName || identity.name}
                         onChange={(e) => setSelectedFriendName(e.target.value)}
                         style={{ marginBottom: 16, width: "auto", minWidth: 180 }}
                       >
@@ -895,17 +929,25 @@ function MainApp({ identity, onSwitchIdentity }) {
                         <div>
                           <div className="section-label">{selectedFriendName} can get</div>
                           <MatchTable
-                            rows={matches.filter((m) => m.seeker === selectedFriendName)}
+                            rows={sortMatchesByPriority(
+                              matches.filter((m) => m.seeker === selectedFriendName),
+                              priorityFriendName
+                            )}
                             peerLabel="Who has it"
                             peerKey="owner"
+                            priorityFriendName={priorityFriendName}
                           />
                         </div>
                         <div>
                           <div className="section-label">{selectedFriendName} can give</div>
                           <MatchTable
-                            rows={matches.filter((m) => m.owner === selectedFriendName)}
+                            rows={sortMatchesByPriority(
+                              matches.filter((m) => m.owner === selectedFriendName),
+                              priorityFriendName
+                            )}
                             peerLabel="Who needs it"
                             peerKey="seeker"
+                            priorityFriendName={priorityFriendName}
                           />
                         </div>
                       </div>
@@ -913,11 +955,28 @@ function MainApp({ identity, onSwitchIdentity }) {
                   )}
 
                   {viewMode === "all" && (
-                    <MatchTable rows={matches} showBoth />
+                    <MatchTable rows={matches} showBoth priorityFriendName={priorityFriendName} />
                   )}
                 </>
               )}
             </>
+          )}
+          </div>
+
+          {binderVisited && binderFriend && (
+            <div style={{ display: onTrades ? "none" : undefined }}>
+              <FriendEditor
+                key={binderFriend.id}
+                friend={binderFriend}
+                isAdminEditing={binderFriend.id !== identity.id}
+                onClose={showTrades}
+                onSaved={() => {
+                  refreshFriends();
+                  setToast("Changes saved.");
+                }}
+                setError={setError}
+              />
+            </div>
           )}
         </main>
       </div>
@@ -1152,9 +1211,14 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isAdminEditing ? 6 : 20 }}>
         <h2 className="app-title" style={{ fontSize: 22 }}>
-          Editing <span style={{ color: "var(--gold)" }}>{friend.name}</span>
+          {isAdminEditing ? (
+            <>
+              Editing <span style={{ color: "var(--gold)" }}>{friend.name}</span>
+            </>
+          ) : (
+            "Your binder"
+          )}
         </h2>
-        <Button onClick={onClose}>Cancel</Button>
       </div>
 
       {isAdminEditing && (
@@ -1193,10 +1257,12 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
 
       {listsEmpty && (
         <div className="empty" style={{ marginBottom: 16 }}>
-          <div className="panel__title" style={{ marginBottom: 8, color: "var(--parchment)" }}>Getting started with {friend.name}'s lists</div>
+          <div className="panel__title" style={{ marginBottom: 8, color: "var(--parchment)" }}>
+            {isAdminEditing ? `Getting started with ${friend.name}'s lists` : "Getting started with your binder"}
+          </div>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             <li>Upload a CSV, paste an Archidekt deck/collection link, or add cards one at a time.</li>
-            <li>Save when done, then calculate group matches from the main page.</li>
+            <li>Save when done, then switch to the Trades tab.</li>
           </ul>
         </div>
       )}
@@ -1692,14 +1758,24 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName, ow
   );
 }
 
-function MatchSummary({ matches, userName, priorityFriendName, label, group }) {
+function MatchSummary({ matches, userName, priorityFriendName, label, group, mine }) {
   if (!matches?.length) return null;
   const stats = buildMatchSummary(matches, userName, priorityFriendName);
   const who = label || userName;
   return (
     <div className="stats-row">
-      <strong>{stats.total}</strong>{" "}
-      {group ? "potential transfers across the group" : `transfers for ${who}`}
+      {mine ? (
+        <>
+          You get <strong>{stats.userCanGet}</strong>
+          {" · "}
+          You give <strong>{stats.userCanGive}</strong>
+        </>
+      ) : (
+        <>
+          <strong>{stats.total}</strong>{" "}
+          {group ? "potential transfers across the group" : `transfers for ${who}`}
+        </>
+      )}
       {priorityFriendName && stats.involvingPriority > 0 && (
         <>
           {" "}
@@ -1707,7 +1783,7 @@ function MatchSummary({ matches, userName, priorityFriendName, label, group }) {
           <span className="is-prio">{priorityFriendName}</span>
         </>
       )}
-      {(stats.userCanGet > 0 || stats.userCanGive > 0) && (
+      {!mine && (stats.userCanGet > 0 || stats.userCanGive > 0) && (
         <>
           {" "}
           · {group ? "You" : who} can get <strong>{stats.userCanGet}</strong>, give{" "}
