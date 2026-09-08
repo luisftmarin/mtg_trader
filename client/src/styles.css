@@ -601,6 +601,18 @@ select.field {
   color: var(--gold);
 }
 
+.toolbar-tabs {
+  margin-right: auto;
+  gap: 8px;
+}
+
+.toolbar-tabs button {
+  min-width: 140px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
 .empty {
   border: 1px dashed var(--hair);
   border-radius: var(--radius);
@@ -1011,5 +1023,14 @@ select.field {
 
   .toolbar-actions {
     flex-direction: column;
+  }
+
+  .toolbar-tabs {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .toolbar-tabs button {
+    flex: 1;
   }
 }

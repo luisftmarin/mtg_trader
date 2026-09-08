@@ -426,7 +426,9 @@ function MainApp({ identity, onSwitchIdentity }) {
   const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
   const [error, setError] = useState("");
-  const [editingFriendId, setEditingFriendId] = useState(null);
+  const [mainTab, setMainTab] = useState("trades");
+  const [binderFriendId, setBinderFriendId] = useState(identity.id);
+  const [binderVisited, setBinderVisited] = useState(false);
   const [matches, setMatches] = useState(null);
   const [matchesLoading, setMatchesLoading] = useState(false);
   const [viewMode, setViewMode] = useState("mine");
@@ -563,7 +565,7 @@ function MainApp({ identity, onSwitchIdentity }) {
     setConfirmDelete(null);
     try {
       await api.deleteFriend(id);
-      if (editingFriendId === id) setEditingFriendId(null);
+      if (binderFriendId === id) setBinderFriendId(identity.id);
       refreshFriends();
       setMatches(null);
       if (id === identity.id) {
@@ -612,8 +614,19 @@ function MainApp({ identity, onSwitchIdentity }) {
     URL.revokeObjectURL(url);
   }
 
-  const editingFriend = friends.find((f) => f.id === editingFriendId);
   const selfFriend = friends.find((f) => f.id === identity.id);
+  const binderFriend = friends.find((f) => f.id === binderFriendId) || selfFriend;
+  const onTrades = mainTab === "trades";
+
+  function showTrades() {
+    setMainTab("trades");
+  }
+
+  function showBinder(friendId = binderFriendId || identity.id) {
+    setBinderFriendId(friendId);
+    setBinderVisited(true);
+    setMainTab("binder");
+  }
   const myMatches = useMemo(
     () => (matches || []).filter((m) => m.seeker === identity.name || m.owner === identity.name),
     [matches, identity.name]
@@ -638,7 +651,7 @@ function MainApp({ identity, onSwitchIdentity }) {
           <IconButton className="roster-toggle" onClick={() => setSidebarOpen(true)} aria-label="Open roster">
             <Menu size={16} />
           </IconButton>
-          <div className="app-header__brand" onClick={() => setEditingFriendId(null)} title="Back to trades">
+          <div className="app-header__brand" onClick={showTrades} title="Trades">
             <div className="app-kicker">Trade with Friends</div>
             <h1 className="app-title">{isMobile ? "Binder Exchange" : "Group Binder Exchange"}</h1>
           </div>
@@ -713,10 +726,10 @@ function MainApp({ identity, onSwitchIdentity }) {
               return (
                 <div
                   key={f.id}
-                  className={`roster-item ${editingFriendId === f.id ? "is-selected" : ""} ${!canEdit ? "is-disabled" : ""}`}
+                  className={`roster-item ${!onTrades && binderFriendId === f.id ? "is-selected" : ""} ${!canEdit ? "is-disabled" : ""}`}
                   onClick={() => {
                     if (!canEdit) return;
-                    setEditingFriendId(f.id);
+                    showBinder(f.id);
                     if (isMobile) setSidebarOpen(false);
                   }}
                 >
@@ -759,7 +772,15 @@ function MainApp({ identity, onSwitchIdentity }) {
 
         <main className="main">
           <div className="toolbar">
-            {!editingFriend && friends.length >= 2 && (
+            <div className="segmented toolbar-tabs">
+              <button type="button" className={onTrades ? "is-active" : ""} onClick={showTrades}>
+                Trades
+              </button>
+              <button type="button" className={!onTrades ? "is-active" : ""} onClick={() => showBinder()}>
+                Binder
+              </button>
+            </div>
+            {onTrades && friends.length >= 2 && (
               <label className="toolbar-label">
                 <Star size={13} color={priorityFriendName ? "var(--gold)" : "var(--muted)"} fill={priorityFriendName ? "var(--gold)" : "none"} />
                 Priority
@@ -779,40 +800,24 @@ function MainApp({ identity, onSwitchIdentity }) {
                 </select>
               </label>
             )}
-            <div className="toolbar-actions">
-              {!editingFriend && (
-                <Button onClick={() => setEditingFriendId(identity.id)}>Your binder</Button>
-              )}
-              {!editingFriend && friends.length >= 2 && (
-                <Button variant="ghost" onClick={calculateMatches} disabled={matchesLoading}>
-                  {matchesLoading ? "Refreshing…" : "Refresh trades"}
-                </Button>
-              )}
-              {!editingFriend && matches?.length > 0 && (
-                <Button onClick={exportCsv}>
-                  <Download size={13} /> Export CSV
-                </Button>
-              )}
-              {editingFriend && (
-                <Button onClick={() => setEditingFriendId(null)}>← Back to trades</Button>
-              )}
-            </div>
+            {onTrades && (
+              <div className="toolbar-actions">
+                {friends.length >= 2 && (
+                  <Button variant="ghost" onClick={calculateMatches} disabled={matchesLoading}>
+                    {matchesLoading ? "Refreshing…" : "Refresh trades"}
+                  </Button>
+                )}
+                {matches?.length > 0 && (
+                  <Button onClick={exportCsv}>
+                    <Download size={13} /> Export CSV
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
-          {editingFriend ? (
-            <FriendEditor
-              friend={editingFriend}
-              isAdminEditing={editingFriend.id !== identity.id}
-              onClose={() => {
-                setEditingFriendId(null);
-              }}
-              onSaved={() => {
-                refreshFriends();
-                setToast("Changes saved.");
-              }}
-              setError={setError}
-            />
-          ) : friends.length < 2 ? (
+          <div style={{ display: onTrades ? undefined : "none" }}>
+          {friends.length < 2 ? (
             <div className="empty">
               Need at least two traders on the roster before matches can be calculated.
             </div>
@@ -826,12 +831,12 @@ function MainApp({ identity, onSwitchIdentity }) {
             <>
               {(!selfFriend?.collection_count && !selfFriend?.wishlist_count) && (
                 <div className="notice" style={{ marginBottom: 16 }}>
-                  Your binder is empty. Open <strong>Your binder</strong> and add a collection or wishlist so the group can match with you.
+                  Your binder is empty. Open the <strong>Binder</strong> tab and add a collection or wishlist so the group can match with you.
                 </div>
               )}
               {selfFriend?.wishlist_count === 0 && selfFriend?.collection_count > 0 && viewMode === "mine" && (
                 <div className="notice" style={{ marginBottom: 16 }}>
-                  Your wishlist is empty, so you will not show up as needing cards. Add wants in Your binder.
+                  Your wishlist is empty, so you will not show up as needing cards. Add wants in the Binder tab.
                 </div>
               )}
 
@@ -955,6 +960,23 @@ function MainApp({ identity, onSwitchIdentity }) {
                 </>
               )}
             </>
+          )}
+          </div>
+
+          {binderVisited && binderFriend && (
+            <div style={{ display: onTrades ? "none" : undefined }}>
+              <FriendEditor
+                key={binderFriend.id}
+                friend={binderFriend}
+                isAdminEditing={binderFriend.id !== identity.id}
+                onClose={showTrades}
+                onSaved={() => {
+                  refreshFriends();
+                  setToast("Changes saved.");
+                }}
+                setError={setError}
+              />
+            </div>
           )}
         </main>
       </div>
@@ -1240,7 +1262,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
           </div>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             <li>Upload a CSV, paste an Archidekt deck/collection link, or add cards one at a time.</li>
-            <li>Save when done, then go back to trades.</li>
+            <li>Save when done, then switch to the Trades tab.</li>
           </ul>
         </div>
       )}
