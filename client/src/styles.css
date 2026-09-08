@@ -789,9 +789,10 @@ select.field {
   box-shadow: var(--shadow);
 }
 
-.suggestions button {
+.suggestions .card-hover--fill {
   display: block;
   width: 100%;
+}
   text-align: left;
   background: transparent;
   border: none;
@@ -1022,7 +1023,24 @@ select.field {
   margin-top: 8px;
 }
 
-.toast {
+.card-hover {
+  display: inline;
+}
+
+.card-hover--fill {
+  display: block;
+}
+
+.card-hover__img {
+  position: fixed;
+  z-index: 80;
+  width: 220px;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  border: 1px solid var(--hair);
+}
   position: fixed;
   bottom: 24px;
   left: 50%;
