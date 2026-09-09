@@ -28,12 +28,14 @@ postgresql://user:password@host:5432/dbname?sslmode=require
 ## 2. Run the migrations
 
 Paste the contents of `server/migrations/001_init.sql`, then
-`002_add_auth.sql`, then `003_add_admin.sql`, into:
+`002_add_auth.sql`, `003_add_admin.sql`, then `004_card_meta.sql`, into:
 - Supabase: the SQL Editor tab, click Run (once per file, in order).
 - Neon: their SQL console, or `psql "<your connection string>" -f server/migrations/001_init.sql`
   (repeat for each file, in order)
 
-This creates the core tables, adds password login, then adds an admin flag.
+This creates the core tables, adds password login, adds an admin flag, then
+adds the Scryfall card cache (images, types, EUR prices), a per-card
+language column, and the profile columns the redesign uses.
 
 ## 3. Set up the server
 
@@ -120,6 +122,36 @@ the frontend.
 
 Your Supabase database is already internet-accessible from step 1 of the
 main setup, so no extra step is needed for it.
+
+## Nightly price refresh
+
+Card prices come from Scryfall's Cardmarket data (`prices.eur`), which
+updates once a day. Rather than hit Scryfall on every page load, the
+server keeps a `scryfall_cards` cache and refreshes it on a schedule:
+
+```
+cd server && npm run refresh-prices
+```
+
+On Railway, add a second service pointed at the same repo with the start
+command `node src/jobs/refreshPrices.js` and a cron schedule of `0 4 * * *`
+(the Variables tab needs `DATABASE_URL`, nothing else). Locally, a crontab
+line does the same job:
+
+```
+0 4 * * * cd /path/to/mtg_trader/server && npm run refresh-prices
+```
+
+The cache also fills itself whenever someone saves a collection or
+wishlist, so a freshly added card previews immediately.
+
+## Design handoff
+
+`handoff/` holds the Binder Exchange v2 design: the hi-fi spec
+(`handoff/README.md`), the schema/API notes (`handoff/IMPLEMENTATION_NOTES.md`)
+and the clickable prototype (`handoff/design/Binder Exchange.dc.html` — open
+it in a browser, it needs `support.js` beside it and internet for Scryfall).
+It is the source of truth for colours, copy, sizes and timings.
 
 ## Notes
 

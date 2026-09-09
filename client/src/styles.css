@@ -169,6 +169,123 @@ a:hover {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
+   Card name + global hover preview
+   ───────────────────────────────────────────────────────────────────── */
+.card-name {
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: default;
+  border-bottom: 1px dotted var(--border-hover);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 100ms;
+}
+.card-name:hover,
+.card-name:focus-visible {
+  color: var(--gold);
+}
+
+.hovercard {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  width: var(--hovercard-w);
+  animation: pop 160ms var(--ease-out);
+  filter: var(--shadow-hovercard);
+}
+.hovercard__arrow {
+  position: absolute;
+  top: 22px;
+  width: 10px;
+  height: 10px;
+  background: var(--surface-hover);
+  border-left: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+  transform: rotate(45deg);
+}
+.hovercard__arrow--left {
+  left: -6px;
+}
+.hovercard__arrow--right {
+  right: -6px;
+}
+.hovercard__body {
+  background: var(--surface-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-card);
+  padding: 8px;
+  overflow: hidden;
+}
+.hovercard__art {
+  width: 100%;
+  aspect-ratio: 488 / 680;
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.hovercard__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.hovercard__skeleton {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: linear-gradient(90deg, var(--surface) 0, #1e2330 40%, var(--surface) 80%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.hovercard__meta {
+  padding: 9px 4px 3px;
+}
+.hovercard__name {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.hovercard__type {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.hovercard__foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font: 500 11.5px var(--font-mono);
+}
+.hovercard__set {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.hovercard__price {
+  color: var(--gold);
+  flex: none;
+  padding-left: 8px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
    Legacy component styles. These keep the current screens rendering on
    the new palette; PR 2 replaces them with the redesigned shell.
    ───────────────────────────────────────────────────────────────────── */

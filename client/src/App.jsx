@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
 import Papa from "papaparse";
 import { Plus, X, Upload, ArrowRight, Download, Users, LogOut, RefreshCw, Key, Menu, Star, Search, Link2 } from "lucide-react";
 import { api } from "./api.js";
 import { Button, IconButton, TextField, Panel, Badge } from "./ui.jsx";
+import { useCards } from "./components/CardPreview.jsx";
 
 const PIPS = { W: "#F0E6C8", U: "#4A90D9", B: "#8B8B93", R: "#C1440E", G: "#3E7A4D" };
 
@@ -137,85 +137,32 @@ function aggregateCanGetRows(rows, priorityFriendName, groupBySeeker = false) {
 
 async function fetchCardSuggestions(query) {
   if (query.trim().length < 2) return [];
-  const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query.trim())}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.data || [];
-}
-
-const cardImageCache = new Map();
-
-async function fetchCardImage(name) {
-  const key = matchKey(name);
-  if (!key) return null;
-  if (cardImageCache.has(key)) return cardImageCache.get(key);
-  const front = String(name || "").trim().split("//")[0].trim();
   try {
-    const res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(front)}`);
-    if (!res.ok) {
-      cardImageCache.set(key, null);
-      return null;
-    }
-    const card = await res.json();
-    const url = card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal || null;
-    cardImageCache.set(key, url);
-    return url;
+    const { data } = await api.autocompleteCards(query.trim());
+    return data || [];
   } catch {
-    cardImageCache.set(key, null);
-    return null;
+    return [];
   }
 }
 
+// Thin wrapper over the app-wide preview: hovering (or focusing) anything
+// wrapped in this shows the card beside it after 350 ms.
 function CardHover({ name, className = "", children }) {
-  const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState(null);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const timerRef = useRef(null);
-  const tokenRef = useRef(0);
-
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  const { openPreview, closePreview } = useCards();
+  const ref = useRef(null);
 
   if (!name || !String(name).trim()) return children;
 
-  function place(e) {
-    const width = 220;
-    const height = 310;
-    const x = e.clientX + 18 + width > window.innerWidth ? e.clientX - width - 12 : e.clientX + 18;
-    const y = e.clientY + height > window.innerHeight - 8 ? window.innerHeight - height - 8 : e.clientY - 24;
-    setPos({ x: Math.max(8, x), y: Math.max(8, y) });
-  }
-
-  function onEnter(e) {
-    place(e);
-    clearTimeout(timerRef.current);
-    const token = ++tokenRef.current;
-    timerRef.current = setTimeout(async () => {
-      const img = await fetchCardImage(name);
-      if (tokenRef.current !== token) return;
-      setUrl(img);
-      setOpen(!!img);
-    }, 180);
-  }
-
-  function onMove(e) {
-    if (open) place(e);
-  }
-
-  function onLeave() {
-    clearTimeout(timerRef.current);
-    tokenRef.current += 1;
-    setOpen(false);
-  }
-
   return (
-    <span className={`card-hover ${className}`.trim()} onMouseEnter={onEnter} onMouseMove={onMove} onMouseLeave={onLeave}>
+    <span
+      ref={ref}
+      className={`card-hover ${className}`.trim()}
+      onMouseEnter={() => openPreview(name, ref.current)}
+      onMouseLeave={closePreview}
+      onFocus={() => openPreview(name, ref.current)}
+      onBlur={closePreview}
+    >
       {children}
-      {open &&
-        url &&
-        createPortal(
-          <img className="card-hover__img" src={url} alt="" style={{ left: pos.x, top: pos.y }} />,
-          document.body
-        )}
     </span>
   );
 }
