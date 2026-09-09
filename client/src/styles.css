@@ -1,28 +1,294 @@
+/* Binder Exchange v2 design tokens — see handoff/README.md "Design tokens".
+   Every value here is lifted from the prototype (handoff/design/Binder
+   Exchange.dc.html); change them here, never inline. */
 :root {
-  --ink: #12141a;
-  --ink-deep: #0d0f14;
-  --panel: #1c1f29;
-  --raised: #262b36;
-  --hair: #3a4150;
-  --parchment: #f0ebe1;
-  --muted: #9ea193;
-  --gold: #d4b03a;
-  --gold-dim: rgba(212, 176, 58, 0.14);
-  --danger: #c45c54;
-  --danger-dim: rgba(196, 92, 84, 0.14);
-  --radius: 12px;
-  --radius-sm: 8px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-  --focus: 0 0 0 3px rgba(212, 176, 58, 0.35);
-  --font: "Inter", system-ui, sans-serif;
-  --serif: "Fraunces", Georgia, serif;
-  --mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Surfaces */
+  --bg: #0e1015;
+  --frame: #07080b;
+  --surface: #151821;
+  --surface-hover: #1a1e29;
+  --border: #232733;
+  --border-strong: #2c3140;
+  --border-hover: #3a4050;
+  --divider: #1c202a;
+
+  /* Text — never lighter than --text-muted on dark surfaces (WCAG AA) */
+  --text: #e8e6df;
+  --text-secondary: #b8bcc4;
+  --text-muted: #8b919c;
+  --placeholder: #6e7480;
+
+  /* Accents */
+  --gold: #d4a843;
+  --gold-hover: #e6bb52;
+  --gold-link-hover: #f0c65a;
+  --gold-soft: rgba(212, 168, 67, 0.12);
+  --gold-tint: rgba(212, 168, 67, 0.05);
+  --ink: #1a1406;
+  --green: #4fbf7a;
+  --green-soft: rgba(79, 191, 122, 0.15);
+  --red: #e06c5a;
+  --red-soft: rgba(224, 108, 90, 0.15);
+  --blue: #8fc0f0;
+  --blue-soft: rgba(74, 144, 217, 0.18);
+
+  /* Mana dots */
+  --mana-w: #f3ecc7;
+  --mana-u: #4a90d9;
+  --mana-b: #9b8bb0;
+  --mana-r: #e05a48;
+  --mana-g: #4fae6a;
+  --mana-c: #8b919c;
+
+  /* Status badges: proposed / your turn / accepted / closed / declined */
+  --status-proposed-bg: rgba(212, 168, 67, 0.15);
+  --status-proposed-fg: var(--gold);
+  --status-turn-bg: var(--blue-soft);
+  --status-turn-fg: var(--blue);
+  --status-accepted-bg: var(--green-soft);
+  --status-accepted-fg: var(--green);
+  --status-closed-bg: rgba(139, 145, 156, 0.15);
+  --status-closed-fg: var(--text-secondary);
+  --status-declined-bg: var(--red-soft);
+  --status-declined-fg: var(--red);
+
+  /* Radii */
+  --r-card: 12px;
+  --r-control: 8px;
+  --r-chip: 6px;
+  --r-chip-lg: 7px;
+  --r-popover: 10px;
+  --r-pill: 999px;
+
+  /* Shadows */
+  --shadow-popover: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --shadow-drawer: -30px 0 60px rgba(0, 0, 0, 0.4);
+  --shadow-hovercard: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.6));
+
+  /* Spacing */
+  --pad-page: 28px;
+  --pad-section: 14px 18px;
+  --pad-row: 12px 18px;
+  --gap-grid: 16px;
+
+  /* Motion */
+  --dur-screen: 350ms;
+  --dur-pop: 180ms;
+  --dur-drawer: 280ms;
+  --dur-toast: 250ms;
+  --dur-hover: 120ms;
+  --dur-control: 150ms;
+  --dur-lift: 180ms;
+  --dur-bar: 350ms;
+  --toast-life: 4200ms;
+  --stagger: 60ms;
+  --ease-out: ease-out;
+  --ease-drawer: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Hover card preview */
+  --hovercard-w: 232px;
+  --hover-open-delay: 350ms;
+  --hover-close-grace: 120ms;
+
+  /* Type */
+  --font-ui: Manrope, system-ui, sans-serif;
+  --font-display: Cinzel, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
+
+/* Keyframes — copied verbatim from the prototype's <style> block. */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 168, 67, 0.45); }
+  70% { box-shadow: 0 0 0 8px rgba(212, 168, 67, 0); }
+}
+@keyframes drift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-4%, 3%) scale(1.08); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+/* Anyone who asks for less motion gets none, per the handoff. The same
+   switch is driven by the Profile toggle via [data-motion="off"]. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+[data-motion="off"] *,
+[data-motion="off"] *::before,
+[data-motion="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+a {
+  color: var(--gold);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--gold-link-hover);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-chip);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Card name + global hover preview
+   ───────────────────────────────────────────────────────────────────── */
+.card-name {
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: default;
+  border-bottom: 1px dotted var(--border-hover);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 100ms;
+}
+.card-name:hover,
+.card-name:focus-visible {
+  color: var(--gold);
+}
+
+.hovercard {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  width: var(--hovercard-w);
+  animation: pop 160ms var(--ease-out);
+  filter: var(--shadow-hovercard);
+}
+.hovercard__arrow {
+  position: absolute;
+  top: 22px;
+  width: 10px;
+  height: 10px;
+  background: var(--surface-hover);
+  border-left: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+  transform: rotate(45deg);
+}
+.hovercard__arrow--left {
+  left: -6px;
+}
+.hovercard__arrow--right {
+  right: -6px;
+}
+.hovercard__body {
+  background: var(--surface-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-card);
+  padding: 8px;
+  overflow: hidden;
+}
+.hovercard__art {
+  width: 100%;
+  aspect-ratio: 488 / 680;
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.hovercard__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.hovercard__skeleton {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: linear-gradient(90deg, var(--surface) 0, #1e2330 40%, var(--surface) 80%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.hovercard__meta {
+  padding: 9px 4px 3px;
+}
+.hovercard__name {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.hovercard__type {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.hovercard__foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font: 500 11.5px var(--font-mono);
+}
+.hovercard__set {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.hovercard__price {
+  color: var(--gold);
+  flex: none;
+  padding-left: 8px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Legacy component styles. These keep the current screens rendering on
+   the new palette; PR 2 replaces them with the redesigned shell.
+   ───────────────────────────────────────────────────────────────────── */
 
 * {
   box-sizing: border-box;
@@ -36,9 +302,9 @@ body,
 
 body {
   margin: 0;
-  background: var(--ink);
-  color: var(--parchment);
-  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -50,13 +316,13 @@ textarea {
 }
 
 ::placeholder {
-  color: var(--muted);
-  opacity: 0.7;
+  color: var(--placeholder);
+  opacity: 1;
 }
 
 :focus-visible {
-  outline: none;
-  box-shadow: var(--focus);
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
 }
 
 .app-shell {
@@ -65,17 +331,17 @@ textarea {
   flex-direction: column;
   background:
     radial-gradient(1200px 500px at 10% -10%, rgba(212, 176, 58, 0.07), transparent 50%),
-    var(--ink);
-  color: var(--parchment);
+    var(--bg);
+  color: var(--text);
 }
 
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: 12px;
   padding: 16px 28px;
-  border-bottom: 1px solid var(--hair);
+  border-bottom: 1px solid var(--border);
   background: rgba(18, 20, 26, 0.85);
   backdrop-filter: blur(10px);
   position: sticky;
@@ -109,7 +375,7 @@ textarea {
 }
 
 .app-title {
-  font-family: var(--serif);
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 26px;
   margin: 0;
@@ -123,8 +389,8 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--panel);
-  border: 1px solid var(--hair);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 6px 4px 12px;
 }
@@ -149,12 +415,12 @@ textarea {
 .roster {
   width: 300px;
   flex-shrink: 0;
-  border-right: 1px solid var(--hair);
+  border-right: 1px solid var(--border);
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--ink-deep);
+  background: var(--frame);
   overflow-y: auto;
 }
 
@@ -162,7 +428,7 @@ textarea {
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -173,9 +439,9 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  background: var(--panel);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
   padding: 10px 12px;
   cursor: pointer;
   text-align: left;
@@ -186,12 +452,12 @@ textarea {
 
 .roster-item:hover {
   border-color: rgba(212, 176, 58, 0.45);
-  background: var(--raised);
+  background: var(--surface-hover);
 }
 
 .roster-item.is-selected {
   border-color: var(--gold);
-  background: var(--gold-dim);
+  background: var(--gold-soft);
 }
 
 .roster-item.is-disabled {
@@ -200,15 +466,15 @@ textarea {
 }
 
 .roster-item.is-disabled:hover {
-  border-color: var(--hair);
-  background: var(--panel);
+  border-color: var(--border);
+  background: var(--surface);
 }
 
 .avatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--gold-dim);
+  background: var(--gold-soft);
   border: 1px solid rgba(212, 176, 58, 0.35);
   color: var(--gold);
   display: grid;
@@ -239,13 +505,13 @@ textarea {
 .roster-item__counts,
 .roster-item__counts {
   font-size: 11px;
-  color: var(--muted);
-  font-family: var(--mono);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 .roster__hint {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-muted);
   margin-top: 6px;
   line-height: 1.45;
 }
@@ -267,9 +533,9 @@ textarea {
   top: 0;
   z-index: 10;
   padding: 10px 14px;
-  background: var(--panel);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
@@ -278,7 +544,7 @@ textarea {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .toolbar-actions {
@@ -289,10 +555,10 @@ textarea {
 
 .warning-banner {
   font-size: 12px;
-  color: var(--danger);
-  background: var(--danger-dim);
+  color: var(--red);
+  background: var(--red-soft);
   border: 1px solid rgba(196, 92, 84, 0.4);
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-control);
   padding: 10px 12px;
   margin-bottom: 12px;
   line-height: 1.45;
@@ -306,9 +572,9 @@ textarea {
 .notice {
   font-size: 12px;
   color: var(--gold);
-  background: var(--gold-dim);
+  background: var(--gold-soft);
   border: 1px solid rgba(212, 176, 58, 0.4);
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-control);
   padding: 10px 12px;
   margin-bottom: 16px;
   line-height: 1.45;
@@ -323,9 +589,9 @@ textarea {
 }
 
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
   overflow: hidden;
 }
 
@@ -335,23 +601,23 @@ textarea {
   justify-content: space-between;
   gap: 8px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--hair);
+  border-bottom: 1px solid var(--border);
 }
 
 .panel__title {
-  font-family: var(--serif);
+  font-family: var(--font-display);
   font-size: 16px;
   margin: 0;
 }
 
 .well {
-  background: var(--ink-deep);
-  border-top: 1px solid var(--hair);
+  background: var(--frame);
+  border-top: 1px solid var(--border);
   padding: 12px 16px 14px;
 }
 
 .well__divider {
-  border-top: 1px solid var(--hair);
+  border-top: 1px solid var(--border);
   padding-top: 12px;
   margin-top: 12px;
 }
@@ -361,7 +627,7 @@ textarea {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-control);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -378,7 +644,7 @@ textarea {
 
 .btn--primary {
   background: var(--gold);
-  color: var(--ink);
+  color: var(--bg);
   border-color: var(--gold);
 }
 
@@ -388,13 +654,13 @@ textarea {
 
 .btn--secondary {
   background: transparent;
-  color: var(--parchment);
-  border-color: var(--hair);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 .btn--secondary:hover:not(:disabled) {
-  border-color: var(--muted);
-  background: var(--raised);
+  border-color: var(--text-muted);
+  background: var(--surface-hover);
 }
 
 .btn--ghost {
@@ -404,13 +670,13 @@ textarea {
 }
 
 .btn--ghost:hover:not(:disabled) {
-  background: var(--gold-dim);
+  background: var(--gold-soft);
 }
 
 .btn--danger {
-  background: var(--danger);
-  color: var(--parchment);
-  border-color: var(--danger);
+  background: var(--red);
+  color: var(--text);
+  border-color: var(--red);
 }
 
 .btn--danger:hover:not(:disabled) {
@@ -425,15 +691,15 @@ textarea {
   height: 40px;
   padding: 0;
   background: transparent;
-  border: 1px solid var(--hair);
-  color: var(--muted);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--r-control);
   cursor: pointer;
 }
 
 .icon-btn:hover:not(:disabled) {
-  color: var(--parchment);
-  border-color: var(--muted);
+  color: var(--text);
+  border-color: var(--text-muted);
 }
 
 .icon-btn--bare {
@@ -444,10 +710,10 @@ textarea {
 
 .field {
   width: 100%;
-  background: var(--raised);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius-sm);
-  color: var(--parchment);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--text);
   font-size: 13px;
   padding: 10px 12px;
 }
@@ -464,7 +730,7 @@ textarea {
 .field--qty,
 .field--qty {
   width: 70px;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
 }
 
 .field--inline {
@@ -505,17 +771,17 @@ select.field {
   gap: 16px;
   margin-bottom: 16px;
   padding: 14px 16px;
-  background: var(--panel);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
   font-size: 13px;
-  color: var(--muted);
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
 .stats-row strong {
   color: var(--gold);
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-weight: 500;
 }
 
@@ -530,21 +796,21 @@ select.field {
   text-align: left;
   padding: 10px 12px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 500;
-  border-bottom: 1px solid var(--hair);
+  border-bottom: 1px solid var(--border);
 }
 
 .data-table td {
   padding: 10px 12px;
-  color: var(--parchment);
+  color: var(--text);
   border-bottom: 1px solid rgba(58, 65, 80, 0.5);
 }
 
 .data-table .is-overlap {
-  background: var(--gold-dim);
+  background: var(--gold-soft);
 }
 
 .data-table .is-priority {
@@ -558,7 +824,7 @@ select.field {
 
 .data-table .qty {
   text-align: right;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   color: var(--gold);
 }
 
@@ -574,7 +840,7 @@ select.field {
 .table-empty {
   padding: 24px;
   text-align: center;
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 12px;
   font-style: italic;
 }
@@ -589,15 +855,15 @@ select.field {
   padding: 8px 14px;
   font-size: 12px;
   border-radius: 999px;
-  border: 1px solid var(--hair);
+  border: 1px solid var(--border);
   background: transparent;
-  color: var(--muted);
+  color: var(--text-muted);
   cursor: pointer;
 }
 
 .segmented button.is-active {
   border-color: var(--gold);
-  background: var(--gold-dim);
+  background: var(--gold-soft);
   color: var(--gold);
 }
 
@@ -614,10 +880,10 @@ select.field {
 }
 
 .empty {
-  border: 1px dashed var(--hair);
-  border-radius: var(--radius);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-card);
   padding: 32px;
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 13px;
   line-height: 1.6;
   background: rgba(28, 31, 41, 0.4);
@@ -631,17 +897,17 @@ select.field {
   padding: 24px;
   background:
     radial-gradient(800px 400px at 50% 0%, rgba(212, 176, 58, 0.1), transparent 55%),
-    var(--ink);
+    var(--bg);
 }
 
 .auth-card {
   width: 400px;
   max-width: 100%;
-  background: var(--panel);
-  border: 1px solid var(--hair);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 32px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-popover);
 }
 
 .auth-card .app-title {
@@ -685,13 +951,13 @@ select.field {
 
 .section-label--muted,
 .section-label--muted {
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .text-link {
   background: none;
   border: none;
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 12px;
   text-align: left;
   cursor: pointer;
@@ -705,12 +971,12 @@ select.field {
 
 .muted {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .hint {
   font-size: 10px;
-  color: var(--muted);
+  color: var(--text-muted);
   line-height: 1.4;
   margin-top: 6px;
 }
@@ -722,16 +988,16 @@ select.field {
 
 .filter-bar {
   padding: 8px 14px;
-  border-bottom: 1px solid var(--hair);
+  border-bottom: 1px solid var(--border);
 }
 
 .filter-bar__inner {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--raised);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
   padding: 5px 8px;
 }
 
@@ -739,7 +1005,7 @@ select.field {
   flex: 1;
   background: none;
   border: none;
-  color: var(--parchment);
+  color: var(--text);
   font-size: 12px;
   outline: none;
   box-shadow: none;
@@ -752,7 +1018,7 @@ select.field {
 .filter-bar button {
   background: none;
   border: none;
-  color: var(--muted);
+  color: var(--text-muted);
   cursor: pointer;
   padding: 0;
 }
@@ -762,7 +1028,7 @@ select.field {
 }
 
 .add-card {
-  border-top: 1px solid var(--hair);
+  border-top: 1px solid var(--border);
   padding: 10px 14px 16px;
   display: flex;
   gap: 6px;
@@ -780,13 +1046,13 @@ select.field {
   left: 0;
   right: 0;
   bottom: calc(100% + 10px);
-  background: var(--raised);
-  border: 1px solid var(--hair);
-  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
   z-index: 50;
   max-height: 220px;
   overflow-y: auto;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-popover);
 }
 
 .suggestions .card-hover--fill {
@@ -800,7 +1066,7 @@ select.field {
   text-align: left;
   background: transparent;
   border: none;
-  color: var(--parchment);
+  color: var(--text);
   font-size: 12px;
   padding: 7px 10px;
   cursor: pointer;
@@ -809,7 +1075,7 @@ select.field {
 
 .suggestions button.is-active,
 .suggestions button:hover {
-  background: var(--gold-dim);
+  background: var(--gold-soft);
 }
 
 .card-hover {
@@ -820,23 +1086,13 @@ select.field {
   display: block;
 }
 
-.card-hover__img {
-  position: fixed;
-  z-index: 80;
-  width: 220px;
-  height: auto;
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  pointer-events: none;
-  border: 1px solid var(--hair);
-}
 
 .pair-card {
   margin-bottom: 14px;
 }
 
 .pair-card .panel__header {
-  font-family: var(--serif);
+  font-family: var(--font-display);
   font-size: 14px;
   justify-content: flex-start;
 }
@@ -844,8 +1100,8 @@ select.field {
 .pair-card__count {
   margin-left: auto;
   font-size: 11px;
-  color: var(--muted);
-  font-family: var(--mono);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 .import-row {
@@ -875,16 +1131,16 @@ select.field {
 .modal {
   width: 380px;
   max-width: 100%;
-  background: var(--panel);
-  border: 1px solid var(--hair);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-popover);
 }
 
 .modal--warning {
   border-color: rgba(196, 92, 84, 0.5);
-  box-shadow: 0 12px 40px rgba(196, 92, 84, 0.18), var(--shadow);
+  box-shadow: 0 12px 40px rgba(196, 92, 84, 0.18), var(--shadow-popover);
 }
 
 .modal__head,
@@ -897,7 +1153,7 @@ select.field {
 
 .modal p {
   font-size: 13px;
-  color: var(--muted);
+  color: var(--text-muted);
   margin: 0 0 20px;
   line-height: 1.5;
 }
@@ -919,7 +1175,7 @@ select.field {
 .chip-more {
   font-size: 11px;
   color: var(--gold);
-  background: var(--gold-dim);
+  background: var(--gold-soft);
   border: 1px solid rgba(212, 176, 58, 0.35);
   border-radius: 3px;
   padding: 1px 6px;
@@ -937,14 +1193,14 @@ select.field {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--raised);
+  background: var(--surface-hover);
   border: 1px solid var(--gold);
-  color: var(--parchment);
-  border-radius: var(--radius-sm);
+  color: var(--text);
+  border-radius: var(--r-control);
   padding: 10px 18px;
   font-size: 13px;
   z-index: 70;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-popover);
 }
 
 .app-shell.is-mobile .icon-btn.roster-toggle,

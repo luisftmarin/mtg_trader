@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
 import Papa from "papaparse";
 import { Plus, X, Upload, ArrowRight, Download, Users, LogOut, RefreshCw, Key, Menu, Star, Search, Link2 } from "lucide-react";
 import { api } from "./api.js";
 import { Button, IconButton, TextField, Panel, Badge } from "./ui.jsx";
+import { useCards } from "./components/CardPreview.jsx";
 
 const PIPS = { W: "#F0E6C8", U: "#4A90D9", B: "#8B8B93", R: "#C1440E", G: "#3E7A4D" };
 
@@ -137,85 +137,32 @@ function aggregateCanGetRows(rows, priorityFriendName, groupBySeeker = false) {
 
 async function fetchCardSuggestions(query) {
   if (query.trim().length < 2) return [];
-  const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(query.trim())}`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.data || [];
-}
-
-const cardImageCache = new Map();
-
-async function fetchCardImage(name) {
-  const key = matchKey(name);
-  if (!key) return null;
-  if (cardImageCache.has(key)) return cardImageCache.get(key);
-  const front = String(name || "").trim().split("//")[0].trim();
   try {
-    const res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(front)}`);
-    if (!res.ok) {
-      cardImageCache.set(key, null);
-      return null;
-    }
-    const card = await res.json();
-    const url = card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal || null;
-    cardImageCache.set(key, url);
-    return url;
+    const { data } = await api.autocompleteCards(query.trim());
+    return data || [];
   } catch {
-    cardImageCache.set(key, null);
-    return null;
+    return [];
   }
 }
 
+// Thin wrapper over the app-wide preview: hovering (or focusing) anything
+// wrapped in this shows the card beside it after 350 ms.
 function CardHover({ name, className = "", children }) {
-  const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState(null);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const timerRef = useRef(null);
-  const tokenRef = useRef(0);
-
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  const { openPreview, closePreview } = useCards();
+  const ref = useRef(null);
 
   if (!name || !String(name).trim()) return children;
 
-  function place(e) {
-    const width = 220;
-    const height = 310;
-    const x = e.clientX + 18 + width > window.innerWidth ? e.clientX - width - 12 : e.clientX + 18;
-    const y = e.clientY + height > window.innerHeight - 8 ? window.innerHeight - height - 8 : e.clientY - 24;
-    setPos({ x: Math.max(8, x), y: Math.max(8, y) });
-  }
-
-  function onEnter(e) {
-    place(e);
-    clearTimeout(timerRef.current);
-    const token = ++tokenRef.current;
-    timerRef.current = setTimeout(async () => {
-      const img = await fetchCardImage(name);
-      if (tokenRef.current !== token) return;
-      setUrl(img);
-      setOpen(!!img);
-    }, 180);
-  }
-
-  function onMove(e) {
-    if (open) place(e);
-  }
-
-  function onLeave() {
-    clearTimeout(timerRef.current);
-    tokenRef.current += 1;
-    setOpen(false);
-  }
-
   return (
-    <span className={`card-hover ${className}`.trim()} onMouseEnter={onEnter} onMouseMove={onMove} onMouseLeave={onLeave}>
+    <span
+      ref={ref}
+      className={`card-hover ${className}`.trim()}
+      onMouseEnter={() => openPreview(name, ref.current)}
+      onMouseLeave={closePreview}
+      onFocus={() => openPreview(name, ref.current)}
+      onBlur={closePreview}
+    >
       {children}
-      {open &&
-        url &&
-        createPortal(
-          <img className="card-hover__img" src={url} alt="" style={{ left: pos.x, top: pos.y }} />,
-          document.body
-        )}
     </span>
   );
 }
@@ -716,9 +663,9 @@ function MainApp({ identity, onSwitchIdentity }) {
           </div>
 
           {loadingFriends ? (
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>Loading…</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading…</div>
           ) : rosterFriends.length === 0 ? (
-            <div style={{ fontSize: 12, color: "var(--muted)", fontStyle: "italic" }}>No traders yet.</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>No traders yet.</div>
           ) : (
             rosterFriends.map((f) => {
               const isSelf = f.id === identity.id;
@@ -782,7 +729,7 @@ function MainApp({ identity, onSwitchIdentity }) {
             </div>
             {onTrades && friends.length >= 2 && (
               <label className="toolbar-label">
-                <Star size={13} color={priorityFriendName ? "var(--gold)" : "var(--muted)"} fill={priorityFriendName ? "var(--gold)" : "none"} />
+                <Star size={13} color={priorityFriendName ? "var(--gold)" : "var(--text-muted)"} fill={priorityFriendName ? "var(--gold)" : "none"} />
                 Priority
                 <select
                   className="field field--compact"
@@ -852,7 +799,7 @@ function MainApp({ identity, onSwitchIdentity }) {
               )}
 
               {matches.length === 0 ? (
-                <div style={{ color: "var(--muted)", fontSize: 13 }}>No matches across the current roster.</div>
+                <div style={{ color: "var(--text-muted)", fontSize: 13 }}>No matches across the current roster.</div>
               ) : (
                 <>
                   <div className="segmented" style={{ marginBottom: 18 }}>
@@ -1049,7 +996,7 @@ function ChangePasswordModal({ onClose }) {
               type="password"
               autoComplete="new-password"
             />
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>At least 6 characters.</div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>At least 6 characters.</div>
             {error && <div className="warning-banner">{error}</div>}
             <Button type="submit" variant="primary" disabled={busy || !currentPassword || !newPassword || !confirm}>
               {busy ? "…" : "Update password"}
@@ -1200,7 +1147,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
     setCollection(rows);
   }
 
-  if (loading) return <div style={{ fontSize: 13, color: "var(--muted)" }}>Loading {friend.name}'s lists…</div>;
+  if (loading) return <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading {friend.name}'s lists…</div>;
 
   const listsEmpty = collection.length === 0 && wishlist.length === 0;
   const collectionOverlapKeys = overlapKeysBetween(collection, wishlist);
@@ -1229,7 +1176,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
               Reset {friend.name}'s password
             </Button>
           ) : resetDone ? (
-            <div style={{ fontSize: 12, color: "var(--parchment)" }}>Password reset. Let {friend.name} know their new one.</div>
+            <div style={{ fontSize: 12, color: "var(--text)" }}>Password reset. Let {friend.name} know their new one.</div>
           ) : (
             <form onSubmit={submitResetPassword} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
               <TextField
@@ -1251,13 +1198,13 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
 
       {overlapCount > 0 && (
         <div className="notice">
-          <span style={{ fontFamily: "var(--mono)" }}>{overlapCount}</span> card{overlapCount !== 1 ? "s" : ""} appear in both collection and wishlist — highlighted below (already owned but still listed as wanted).
+          <span style={{ fontFamily: "var(--font-mono)" }}>{overlapCount}</span> card{overlapCount !== 1 ? "s" : ""} appear in both collection and wishlist — highlighted below (already owned but still listed as wanted).
         </div>
       )}
 
       {listsEmpty && (
         <div className="empty" style={{ marginBottom: 16 }}>
-          <div className="panel__title" style={{ marginBottom: 8, color: "var(--parchment)" }}>
+          <div className="panel__title" style={{ marginBottom: 8, color: "var(--text)" }}>
             {isAdminEditing ? `Getting started with ${friend.name}'s lists` : "Getting started with your binder"}
           </div>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
@@ -1332,7 +1279,7 @@ function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, o
 
       <div className="filter-bar">
         <div className="filter-bar__inner">
-          <Search size={12} color="var(--muted)" />
+          <Search size={12} color="var(--text-muted)" />
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -1447,7 +1394,7 @@ function ImportSection({ platform, onPlatformChange, onReplaceFile, showDeckLink
       </div>
 
       <div style={{ marginBottom: showDeckLinkImport ? 12 : 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
           <Upload size={12} color="var(--gold)" />
           Replace from CSV
         </div>
@@ -1478,7 +1425,7 @@ function ImportSection({ platform, onPlatformChange, onReplaceFile, showDeckLink
           />
           <SaveChangesButton onSave={onSave} saving={saving} />
         </div>
-        <div style={{ marginTop: 6, fontSize: 10, color: "var(--muted)", lineHeight: 1.4 }}>
+        <div style={{ marginTop: 6, fontSize: 10, color: "var(--text-muted)", lineHeight: 1.4 }}>
           Save changes overwrites the current list.
         </div>
       </div>

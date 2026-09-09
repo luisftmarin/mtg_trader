@@ -50,4 +50,9 @@ export const api = {
     request(`/friends/${id}/wishlist`, { method: "PUT", body: JSON.stringify({ cards }) }),
   importDeckFromUrl: (url) => request("/import/deck", { method: "POST", body: JSON.stringify({ url }) }),
   getMatches: () => request("/matches"),
+  // Card metadata and EUR prices always come from the server cache; the
+  // browser only ever loads images straight from Scryfall.
+  getCards: (keys) => request(`/cards?keys=${encodeURIComponent(keys.join(","))}`),
+  resolveCards: (names) => request("/scryfall/resolve", { method: "POST", body: JSON.stringify({ names }) }),
+  autocompleteCards: (q) => request(`/scryfall/autocomplete?q=${encodeURIComponent(q)}`),
 };

@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080b;color:#e8e6df;font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#d4a843;text-decoration:none}a:hover{color:#f0c65a}
+input,select,textarea,button{font-family:inherit}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid #d4a843;outline-offset:1px}
+::placeholder{color:#6e7480}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#2c3140;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+@keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(212,168,67,.45)}70%{box-shadow:0 0 0 8px rgba(212,168,67,0)}}
+@keyframes drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(-4%,3%) scale(1.08)}100%{transform:translate(0,0) scale(1)}}
+[data-motion="off"] *{animation:none!important;transition:none!important}
+</style>
+</helmet>
+<div data-motion="{{ motion }}" style="min-height:100vh;display:flex;justify-content:center;align-items:flex-start;background:#07080b">
+<div style="position:relative;flex:1;display:flex;flex-direction:column;background:#0e1015;overflow:hidden;max-width:{{ maxW }};min-height:{{ minH }};height:{{ frameH }};border-radius:{{ frameR }};margin:{{ frameM }};border:{{ frameB }}">
+
+<!-- ═══════════ LOGIN ═══════════ -->
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Login" style="position:relative;flex:1;min-height:100vh;display:grid;place-items:center;padding:24px;overflow:hidden">
+  <div style="position:absolute;inset:-20%;background:radial-gradient(60% 50% at 20% 30%,rgba(212,168,67,.16),transparent 60%),radial-gradient(45% 45% at 80% 70%,rgba(74,144,217,.14),transparent 60%),radial-gradient(35% 35% at 60% 20%,rgba(79,174,106,.10),transparent 60%);animation:drift 18s ease-in-out infinite;pointer-events:none"></div>
+  <div style="position:relative;width:100%;max-width:400px;background:rgba(21,24,33,.9);backdrop-filter:blur(12px);border:1px solid #2c3140;border-radius:16px;padding:36px 32px;animation:pop .5s ease-out both;box-shadow:0 30px 80px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:26px">
+      <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#d4a843,#8a6a1c);display:grid;place-items:center;color:#1a1406;font:700 18px Cinzel,serif">B</div>
+      <div><div style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.16em;color:#d4a843">TRADE WITH FRIENDS</div><div style="font:600 20px Cinzel,serif;line-height:1.1">Binder Exchange</div></div>
+    </div>
+    <label style="display:block;font-size:12px;font-weight:600;color:#b8bcc4;margin-bottom:6px">Username</label>
+    <input value="{{ loginUser }}" onChange="{{ setLoginUser }}" placeholder="willian" style="width:100%;box-sizing:border-box;background:#0e1015;border:1px solid #2c3140;border-radius:8px;color:#e8e6df;padding:11px 12px;font-size:15px;margin-bottom:14px" />
+    <label style="display:block;font-size:12px;font-weight:600;color:#b8bcc4;margin-bottom:6px">Password</label>
+    <input type="password" value="{{ loginPass }}" onChange="{{ setLoginPass }}" onKeyDown="{{ loginKey }}" placeholder="••••••••" style="width:100%;box-sizing:border-box;background:#0e1015;border:1px solid #2c3140;border-radius:8px;color:#e8e6df;padding:11px 12px;font-size:15px;margin-bottom:20px" />
+    <button onClick="{{ login }}" style="width:100%;border:0;border-radius:8px;background:#d4a843;color:#1a1406;font-weight:800;font-size:15px;padding:12px;cursor:pointer;transition:transform .12s,background .12s" style-hover="background:#e6bb52;transform:translateY(-1px)" style-active="transform:translateY(0)">Sign in</button>
+    <div style="display:flex;justify-content:space-between;margin-top:16px;font-size:13px;color:#8b919c"><a href="#" style="color:#8b919c">Forgot password</a><a href="#">Create account</a></div>
+    <div style="margin-top:22px;padding-top:18px;border-top:1px solid #232733;font-size:12px;color:#8b919c;line-height:1.5">Prototype: any username works. Card images and EUR prices load live from Scryfall (Cardmarket data).</div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ═══════════ APP SHELL ═══════════ -->
+<sc-if value="{{ isApp }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;flex:1;min-height:0;height:100%">
+  <!-- Top bar -->
+  <header style="display:flex;align-items:center;gap:14px;height:58px;padding:0 18px;border-bottom:1px solid #232733;background:#0e1015;flex:none;position:relative;z-index:5">
+    <button onClick="{{ goDash }}" style="display:flex;align-items:center;gap:10px;background:none;border:0;padding:0;cursor:pointer;color:#e8e6df">
+      <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#d4a843,#8a6a1c);display:grid;place-items:center;color:#1a1406;font:700 14px Cinzel,serif">B</div>
+      <div style="font:600 16px Cinzel,serif;letter-spacing:.01em">Binder Exchange</div>
+    </button>
+    <div style="flex:1"></div>
+    <sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:center;gap:8px;background:#151821;border:1px solid #232733;border-radius:8px;padding:7px 12px;width:260px;color:#8b919c;font-size:13px;transition:border-color .12s" style-hover="border-color:#3a4050"><span style="font-size:14px">⌕</span><input placeholder="Search cards or friends…" value="{{ globalQ }}" onChange="{{ setGlobalQ }}" style="flex:1;background:none;border:0;color:#e8e6df;font-size:13px;padding:0;outline:none" /></div>
+    </sc-if>
+    <div style="position:relative">
+      <button onClick="{{ toggleNotif }}" aria-label="Notifications" style="position:relative;width:38px;height:38px;border-radius:8px;border:1px solid #232733;background:#151821;color:#e8e6df;cursor:pointer;font-size:16px;transition:border-color .12s,background .12s" style-hover="border-color:#3a4050;background:#1a1e29">🔔<sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:#d4a843;animation:pulse 2s infinite"></span></sc-if></button>
+      <sc-if value="{{ notifOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;right:0;top:46px;width:340px;max-width:calc(100vw - 32px);background:#151821;border:1px solid #2c3140;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.5);animation:pop .18s ease-out;z-index:20;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid #232733"><div style="font-weight:700;font-size:13px">Notifications</div><button onClick="{{ markAllRead }}" style="background:none;border:0;color:#d4a843;font-size:12px;cursor:pointer;font-weight:600">Mark all read</button></div>
+        <sc-for list="{{ notifsTop }}" as="n" hint-placeholder-count="3">
+        <button onClick="{{ n.open }}" style="display:flex;gap:10px;width:100%;text-align:left;padding:11px 14px;border:0;border-bottom:1px solid #1c202a;background:{{ n.bg }};color:#e8e6df;cursor:pointer;transition:background .12s" style-hover="background:#1a1e29">
+          <div style="width:30px;height:30px;border-radius:8px;background:#0e1015;border:1px solid #232733;display:grid;place-items:center;font-size:14px;flex:none">{{ n.icon }}</div>
+          <div style="flex:1;min-width:0"><div style="font-size:13px;line-height:1.4">{{ n.text }}</div><div style="font:400 11px 'JetBrains Mono',monospace;color:#8b919c;margin-top:3px">{{ n.time }}</div></div>
+          <sc-if value="{{ n.unread }}" hint-placeholder-val="{{ false }}"><span style="width:7px;height:7px;border-radius:50%;background:#d4a843;margin-top:6px;flex:none"></span></sc-if>
+        </button>
+        </sc-for>
+        <button onClick="{{ goNotifs }}" style="width:100%;padding:11px;border:0;background:#0e1015;color:#d4a843;font-size:12px;font-weight:700;cursor:pointer">View all</button>
+      </div>
+      </sc-if>
+    </div>
+    <button onClick="{{ goProfile }}" style="display:flex;align-items:center;gap:9px;background:#151821;border:1px solid #232733;border-radius:8px;padding:4px 10px 4px 4px;cursor:pointer;color:#e8e6df;transition:border-color .12s" style-hover="border-color:#d4a843">
+      <div style="width:30px;height:30px;border-radius:7px;background:radial-gradient(circle at 30% 30%,#e6bb52,#8a6a1c);display:grid;place-items:center;color:#1a1406;font:700 12px Cinzel,serif">{{ meInitials }}</div>
+      <sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;font-weight:600">{{ meName }}</div></sc-if>
+    </button>
+  </header>
+
+  <div style="display:flex;flex:1;min-height:0">
+    <!-- Sidebar -->
+    <sc-if value="{{ notMobile }}" hint-placeholder-val="{{ true }}">
+    <nav style="width:236px;flex:none;border-right:1px solid #232733;display:flex;flex-direction:column;background:#0e1015;overflow:hidden">
+      <div style="padding:14px 12px 6px;display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{ navItems }}" as="it" hint-placeholder-count="4">
+        <button onClick="{{ it.go }}" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:0;text-align:left;cursor:pointer;font-size:14px;font-weight:600;transition:background .12s,color .12s;background:{{ it.bg }};color:{{ it.color }}" style-hover="background:#1a1e29"><span style="width:20px;text-align:center;font-size:15px">{{ it.icon }}</span><span style="flex:1">{{ it.label }}</span><sc-if value="{{ it.badge }}" hint-placeholder-val="{{ false }}"><span style="font:600 11px 'JetBrains Mono',monospace;background:#d4a843;color:#1a1406;border-radius:10px;padding:1px 7px">{{ it.badge }}</span></sc-if></button>
+        </sc-for>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px 8px;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#8b919c">ROSTER · {{ rosterCount }}<span style="color:#4fbf7a">● 4 online</span></div>
+      <div style="flex:1;overflow-y:auto;padding:0 12px 16px;display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{ roster }}" as="u" hint-placeholder-count="8">
+        <button onClick="{{ u.open }}" style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;border:0;background:{{ u.bg }};text-align:left;cursor:pointer;color:#e8e6df;transition:background .12s" style-hover="background:#1a1e29">
+          <div style="position:relative;width:30px;height:30px;border-radius:8px;background:#151821;border:1px solid #2c3140;display:grid;place-items:center;font:600 11px 'JetBrains Mono',monospace;color:#d4a843;flex:none">{{ u.ini }}<sc-if value="{{ u.online }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:-3px;bottom:-3px;width:9px;height:9px;border-radius:50%;background:#4fbf7a;border:2px solid #0e1015"></span></sc-if></div>
+          <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ u.u }}</div><div style="font:400 10.5px 'JetBrains Mono',monospace;color:#8b919c">{{ u.coll }} · {{ u.wish }} wish</div></div>
+          <sc-if value="{{ u.matches }}" hint-placeholder-val="{{ false }}"><span title="matches with you" style="font:600 10.5px 'JetBrains Mono',monospace;color:#d4a843;border:1px solid rgba(212,168,67,.4);border-radius:6px;padding:1px 6px">{{ u.matches }}</span></sc-if>
+        </button>
+        </sc-for>
+      </div>
+    </nav>
+    </sc-if>
+
+    <!-- Main -->
+    <main style="flex:1;min-width:0;overflow-y:auto;position:relative;padding-bottom:{{ mainPadB }}">
+
+      <!-- DASHBOARD -->
+      <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+      <div data-screen-label="Dashboard" style="padding:28px 28px 40px;max-width:1180px;margin:0 auto;animation:rise .35s ease-out both">
+        <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#d4a843;margin-bottom:6px">{{ todayLabel }}</div>
+        <h1 style="font:600 30px/1.15 Cinzel,serif;margin:0 0 22px">Good evening, {{ meName }}</h1>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:28px">
+          <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+          <button onClick="{{ s.go }}" style="text-align:left;background:#151821;border:1px solid #232733;border-radius:12px;padding:18px 18px 16px;cursor:pointer;color:#e8e6df;animation:rise .4s ease-out both;animation-delay:{{ s.delay }};transition:border-color .15s,transform .15s" style-hover="border-color:#d4a843;transform:translateY(-2px)">
+            <div style="font-size:12px;font-weight:600;color:#8b919c;margin-bottom:8px">{{ s.label }}</div>
+            <div style="font:600 30px/1 'JetBrains Mono',monospace;color:{{ s.color }}">{{ s.value }}</div>
+            <div style="font-size:12px;color:#b8bcc4;margin-top:8px">{{ s.sub }}</div>
+          </button>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px">
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #232733"><div style="font-weight:700;font-size:14px">Best trade partners</div><button onClick="{{ goTrades }}" style="background:none;border:0;color:#d4a843;font-size:12px;font-weight:700;cursor:pointer">All matches →</button></div>
+            <sc-for list="{{ partners }}" as="p" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #1c202a;transition:background .12s" style-hover="background:#1a1e29">
+              <div style="width:34px;height:34px;border-radius:9px;background:#0e1015;border:1px solid #2c3140;display:grid;place-items:center;font:600 12px 'JetBrains Mono',monospace;color:#d4a843">{{ p.ini }}</div>
+              <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">{{ p.u }}</div><div style="font-size:12px;color:#8b919c;margin-top:2px">You get <b style="color:#4fbf7a">{{ p.get }}</b> · you give <b style="color:#e8e6df">{{ p.give }}</b> · active {{ p.active }}</div></div>
+              <div style="text-align:right"><div style="font:600 13px 'JetBrains Mono',monospace;color:{{ p.balColor }}">{{ p.bal }}</div><div style="font-size:10.5px;color:#8b919c">balance</div></div>
+              <button onClick="{{ p.propose }}" style="border:1px solid #2c3140;background:#0e1015;color:#e8e6df;border-radius:7px;padding:7px 11px;font-size:12px;font-weight:700;cursor:pointer;transition:all .12s" style-hover="border-color:#d4a843;color:#d4a843">Propose</button>
+            </div>
+            </sc-for>
+          </section>
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #232733"><div style="font-weight:700;font-size:14px">Open trades</div><button onClick="{{ goProposals }}" style="background:none;border:0;color:#d4a843;font-size:12px;font-weight:700;cursor:pointer">See all →</button></div>
+            <sc-for list="{{ openTrades }}" as="t" hint-placeholder-count="3">
+            <button onClick="{{ t.open }}" style="display:flex;width:100%;text-align:left;align-items:center;gap:12px;padding:12px 18px;border:0;border-bottom:1px solid #1c202a;background:none;color:#e8e6df;cursor:pointer;transition:background .12s" style-hover="background:#1a1e29">
+              <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">{{ t.partner }} <span style="font:400 11px 'JetBrains Mono',monospace;color:#8b919c;margin-left:6px">{{ t.id }}</span></div><div style="font-size:12px;color:#8b919c;margin-top:2px">{{ t.summary }}</div></div>
+              <span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;background:{{ t.stBg }};color:{{ t.stColor }};white-space:nowrap">{{ t.stLabel }}</span>
+            </button>
+            </sc-for>
+            <div style="padding:14px 18px 6px;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#8b919c">RECENT ACTIVITY</div>
+            <sc-for list="{{ notifsTop }}" as="n" hint-placeholder-count="3">
+            <div style="display:flex;gap:10px;padding:9px 18px;font-size:13px;color:#b8bcc4;line-height:1.4"><span style="color:#8b919c;font:400 11px 'JetBrains Mono',monospace;min-width:52px;padding-top:2px">{{ n.time }}</span><span>{{ n.text }}</span></div>
+            </sc-for>
+          </section>
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #232733"><div style="font-weight:700;font-size:14px">Wishlist now available</div><button onClick="{{ goBinderWish }}" style="background:none;border:0;color:#d4a843;font-size:12px;font-weight:700;cursor:pointer">Wishlist →</button></div>
+            <div style="display:flex;gap:10px;padding:16px 18px;overflow-x:auto">
+              <sc-for list="{{ wishAvail }}" as="c" hint-placeholder-count="5">
+              <button onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}" onFocus="{{ c.onEnter }}" onBlur="{{ c.onLeave }}" onClick="{{ c.go }}" style="flex:none;width:96px;background:none;border:0;padding:0;cursor:pointer;text-align:left;color:#e8e6df">
+                <div style="width:96px;height:134px;border-radius:6px;overflow:hidden;background:#0e1015;border:1px solid #2c3140;transition:transform .18s,box-shadow .18s" style-hover="transform:translateY(-4px) rotate(-1deg);box-shadow:0 12px 30px rgba(0,0,0,.5)"><sc-if value="{{ c.img }}" hint-placeholder-val="{{ false }}"><img src="{{ c.img }}" alt="{{ c.name }}" style="width:100%;height:100%;object-fit:cover;display:block" /></sc-if><sc-if value="{{ c.noImg }}" hint-placeholder-val="{{ true }}"><div style="width:100%;height:100%;background:linear-gradient(90deg,#151821 0,#1e2330 40%,#151821 80%);background-size:800px 100%;animation:shimmer 1.4s linear infinite"></div></sc-if></div>
+                <div style="font-size:11.5px;font-weight:600;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</div>
+                <div style="font:400 10.5px 'JetBrains Mono',monospace;color:#8b919c">{{ c.from }} · {{ c.eur }}</div>
+              </button>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- TRADES -->
+      <sc-if value="{{ isTrades }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Trades" style="padding:28px 28px 40px;max-width:1180px;margin:0 auto;animation:rise .35s ease-out both">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:20px">
+          <h1 style="font:600 26px/1.15 Cinzel,serif;margin:0;flex:1">Trades</h1>
+          <div style="font:400 11px 'JetBrains Mono',monospace;color:#8b919c">matches computed {{ matchTime }}</div>
+          <button onClick="{{ startTrade }}" style="border:0;border-radius:8px;background:#d4a843;color:#1a1406;font-weight:800;font-size:13px;padding:10px 14px;cursor:pointer;transition:background .12s,transform .12s" style-hover="background:#e6bb52;transform:translateY(-1px)">+ New trade</button>
+        </div>
+        <div style="display:flex;gap:4px;background:#151821;border:1px solid #232733;border-radius:10px;padding:4px;width:fit-content;margin-bottom:22px">
+          <sc-for list="{{ tradeTabs }}" as="tb" hint-placeholder-count="3">
+          <button onClick="{{ tb.go }}" style="border:0;border-radius:7px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;background:{{ tb.bg }};color:{{ tb.color }}">{{ tb.label }}<sc-if value="{{ tb.count }}" hint-placeholder-val="{{ false }}"><span style="font:600 11px 'JetBrains Mono',monospace;margin-left:7px;opacity:.8">{{ tb.count }}</span></sc-if></button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ tradeTabMatches }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px">
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #232733"><div><div style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#4fbf7a">YOU GET</div><div style="font-size:13px;color:#b8bcc4;margin-top:3px">Friends have · you want</div></div><div style="font:600 16px 'JetBrains Mono',monospace;color:#4fbf7a">{{ getTotal }}</div></div>
+            <sc-for list="{{ matchesGet }}" as="m" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid #1c202a;transition:background .12s" style-hover="background:#1a1e29">
+              <div style="display:flex;gap:3px;width:26px"><sc-for list="{{ m.dots }}" as="d" hint-placeholder-count="1"><span style="width:8px;height:8px;border-radius:50%;background:{{ d.c }};display:inline-block"></span></sc-for></div>
+              <button tabindex="0" onMouseEnter="{{ m.onEnter }}" onMouseLeave="{{ m.onLeave }}" onFocus="{{ m.onEnter }}" onBlur="{{ m.onLeave }}" style="flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;color:#e8e6df;font-size:14px;font-weight:600;cursor:default;border-bottom:1px dotted #3a4050;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .1s" style-hover="color:#d4a843">{{ m.name }}</button>
+              <button onClick="{{ m.openFrom }}" style="background:#0e1015;border:1px solid #2c3140;color:#b8bcc4;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;transition:border-color .12s" style-hover="border-color:#d4a843">{{ m.from }}<sc-if value="{{ m.more }}" hint-placeholder-val="{{ false }}"><span style="font:600 10.5px 'JetBrains Mono',monospace;color:#d4a843;margin-left:5px">+{{ m.more }}</span></sc-if></button>
+              <div style="font:500 13px 'JetBrains Mono',monospace;color:#b8bcc4;min-width:66px;text-align:right">{{ m.eur }}</div>
+            </div>
+            </sc-for>
+          </section>
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #232733"><div><div style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#d4a843">YOU GIVE</div><div style="font-size:13px;color:#b8bcc4;margin-top:3px">You have · friends want</div></div><div style="font:600 16px 'JetBrains Mono',monospace;color:#e8e6df">{{ giveTotal }}</div></div>
+            <sc-for list="{{ matchesGive }}" as="m" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid #1c202a;transition:background .12s" style-hover="background:#1a1e29">
+              <div style="display:flex;gap:3px;width:26px"><sc-for list="{{ m.dots }}" as="d" hint-placeholder-count="1"><span style="width:8px;height:8px;border-radius:50%;background:{{ d.c }};display:inline-block"></span></sc-for></div>
+              <button tabindex="0" onMouseEnter="{{ m.onEnter }}" onMouseLeave="{{ m.onLeave }}" onFocus="{{ m.onEnter }}" onBlur="{{ m.onLeave }}" style="flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;color:#e8e6df;font-size:14px;font-weight:600;cursor:default;border-bottom:1px dotted #3a4050;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .1s" style-hover="color:#d4a843">{{ m.name }}</button>
+              <button onClick="{{ m.openFrom }}" style="background:#0e1015;border:1px solid #2c3140;color:#b8bcc4;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer;transition:border-color .12s" style-hover="border-color:#d4a843">→ {{ m.from }}</button>
+              <div style="font:500 13px 'JetBrains Mono',monospace;color:#b8bcc4;min-width:66px;text-align:right">{{ m.eur }}</div>
+            </div>
+            </sc-for>
+          </section>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ tradeTabProposals }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ proposalList }}" as="t" hint-placeholder-count="3">
+          <button onClick="{{ t.open }}" style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;text-align:left;background:#151821;border:1px solid #232733;border-radius:12px;padding:16px 18px;color:#e8e6df;cursor:pointer;transition:border-color .15s,transform .15s" style-hover="border-color:#d4a843;transform:translateX(3px)">
+            <div style="width:40px;height:40px;border-radius:10px;background:#0e1015;border:1px solid #2c3140;display:grid;place-items:center;font:600 13px 'JetBrains Mono',monospace;color:#d4a843">{{ t.ini }}</div>
+            <div style="min-width:0"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="font-weight:700;font-size:15px">{{ t.partner }}</span><span style="font:400 11px 'JetBrains Mono',monospace;color:#8b919c">{{ t.id }} · {{ t.date }}</span><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:{{ t.stBg }};color:{{ t.stColor }}">{{ t.stLabel }}</span></div><div style="font-size:13px;color:#b8bcc4;margin-top:5px">{{ t.summary }}</div></div>
+            <div style="text-align:right"><div style="font:600 14px 'JetBrains Mono',monospace;color:{{ t.balColor }}">{{ t.bal }}</div><div style="font-size:11px;color:#8b919c">{{ t.getEur }} ↔ {{ t.giveEur }}</div></div>
+          </button>
+          </sc-for>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ tradeTabHistory }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ historyList }}" as="t" hint-placeholder-count="2">
+          <button onClick="{{ t.open }}" style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;text-align:left;background:#151821;border:1px solid #232733;border-radius:12px;padding:16px 18px;color:#e8e6df;cursor:pointer;transition:border-color .15s" style-hover="border-color:#3a4050">
+            <div style="width:40px;height:40px;border-radius:10px;background:#0e1015;border:1px solid #2c3140;display:grid;place-items:center;font:600 13px 'JetBrains Mono',monospace;color:#8b919c">{{ t.ini }}</div>
+            <div style="min-width:0"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="font-weight:700;font-size:15px">{{ t.partner }}</span><span style="font:400 11px 'JetBrains Mono',monospace;color:#8b919c">{{ t.id }} · {{ t.date }}</span><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:{{ t.stBg }};color:{{ t.stColor }}">{{ t.stLabel }}</span></div><div style="font-size:13px;color:#b8bcc4;margin-top:5px">{{ t.summary }}</div></div>
+            <div style="text-align:right"><div style="font:600 14px 'JetBrains Mono',monospace;color:{{ t.balColor }}">{{ t.bal }}</div><div style="font-size:11px;color:#8b919c">prices at completion</div></div>
+          </button>
+          </sc-for>
+        </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <!-- NEW TRADE BUILDER -->
+      <sc-if value="{{ isNewTrade }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="New trade" style="padding:28px 28px 40px;max-width:1180px;margin:0 auto;animation:rise .35s ease-out both">
+        <button onClick="{{ goTrades }}" style="background:none;border:0;color:#8b919c;font-size:13px;cursor:pointer;padding:0;margin-bottom:12px" style-hover="color:#d4a843">← Trades</button>
+        <h1 style="font:600 26px/1.15 Cinzel,serif;margin:0 0 18px">New trade</h1>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px">
+          <sc-for list="{{ partnerChips }}" as="p" hint-placeholder-count="5">
+          <button onClick="{{ p.pick }}" style="display:flex;align-items:center;gap:8px;border-radius:999px;padding:7px 12px 7px 7px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:1px solid {{ p.border }};background:{{ p.bg }};color:{{ p.color }}"><span style="width:22px;height:22px;border-radius:50%;background:#0e1015;display:grid;place-items:center;font:600 10px 'JetBrains Mono',monospace;color:#d4a843">{{ p.ini }}</span>{{ p.u }}<span style="font:500 11px 'JetBrains Mono',monospace;opacity:.7">{{ p.n }}</span></button>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;margin-bottom:18px">
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="padding:12px 16px;border-bottom:1px solid #232733;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#4fbf7a">YOU GET FROM {{ draftPartnerUp }}</div>
+            <sc-for list="{{ draftGetOpts }}" as="c" hint-placeholder-count="4">
+            <label style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #1c202a;cursor:pointer;transition:background .12s;background:{{ c.bg }}" style-hover="background:#1a1e29">
+              <input type="checkbox" checked="{{ c.on }}" onChange="{{ c.toggle }}" style="accent-color:#d4a843;width:16px;height:16px" />
+              <span tabindex="0" onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}" onFocus="{{ c.onEnter }}" onBlur="{{ c.onLeave }}" style="flex:1;font-size:14px;font-weight:600;border-bottom:1px dotted #3a4050">{{ c.name }}</span>
+              <span style="font:500 13px 'JetBrains Mono',monospace;color:#b8bcc4">{{ c.eur }}</span>
+            </label>
+            </sc-for>
+            <sc-if value="{{ draftGetEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:22px 16px;font-size:13px;color:#8b919c;text-align:center">Nothing on your wishlist in this binder yet.</div></sc-if>
+          </section>
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="padding:12px 16px;border-bottom:1px solid #232733;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#d4a843">YOU GIVE</div>
+            <sc-for list="{{ draftGiveOpts }}" as="c" hint-placeholder-count="4">
+            <label style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #1c202a;cursor:pointer;transition:background .12s;background:{{ c.bg }}" style-hover="background:#1a1e29">
+              <input type="checkbox" checked="{{ c.on }}" onChange="{{ c.toggle }}" style="accent-color:#d4a843;width:16px;height:16px" />
+              <span tabindex="0" onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}" onFocus="{{ c.onEnter }}" onBlur="{{ c.onLeave }}" style="flex:1;font-size:14px;font-weight:600;border-bottom:1px dotted #3a4050">{{ c.name }}</span>
+              <sc-if value="{{ c.wanted }}" hint-placeholder-val="{{ false }}"><span style="font-size:10.5px;font-weight:700;color:#4fbf7a;border:1px solid rgba(79,191,122,.4);border-radius:5px;padding:1px 6px">wants</span></sc-if>
+              <span style="font:500 13px 'JetBrains Mono',monospace;color:#b8bcc4">{{ c.eur }}</span>
+            </label>
+            </sc-for>
+          </section>
+        </div>
+        <div style="background:#151821;border:1px solid #232733;border-radius:12px;padding:18px;display:flex;flex-wrap:wrap;gap:18px;align-items:center">
+          <div style="flex:1;min-width:240px">
+            <div style="display:flex;justify-content:space-between;font:500 12px 'JetBrains Mono',monospace;margin-bottom:8px"><span style="color:#4fbf7a">get {{ draftGetEur }}</span><span style="color:{{ draftBalColor }}">{{ draftBalLabel }}</span><span style="color:#e8e6df">give {{ draftGiveEur }}</span></div>
+            <div style="height:8px;border-radius:4px;background:#0e1015;overflow:hidden;display:flex"><div style="height:100%;background:#4fbf7a;transition:width .3s ease;width:{{ draftGetPct }}"></div><div style="height:100%;background:#d4a843;transition:width .3s ease;flex:1"></div></div>
+          </div>
+          <textarea value="{{ draftNote }}" onChange="{{ setDraftNote }}" placeholder="Message to your friend (optional)" rows="1" style="flex:1;min-width:200px;background:#0e1015;border:1px solid #2c3140;border-radius:8px;color:#e8e6df;padding:10px 12px;font-size:13px;resize:none"></textarea>
+          <button onClick="{{ sendDraft }}" disabled="{{ draftDisabled }}" style="border:0;border-radius:8px;background:#d4a843;color:#1a1406;font-weight:800;font-size:13px;padding:11px 16px;cursor:pointer;opacity:{{ draftOpacity }};transition:background .12s" style-hover="background:#e6bb52">Send proposal</button>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- TRADE DETAIL -->
+      <sc-if value="{{ isTradeDetail }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Trade detail" style="padding:28px 28px 40px;max-width:1180px;margin:0 auto;animation:rise .35s ease-out both">
+        <button onClick="{{ goTrades }}" style="background:none;border:0;color:#8b919c;font-size:13px;cursor:pointer;padding:0;margin-bottom:12px" style-hover="color:#d4a843">← Trades</button>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:20px">
+          <div style="width:46px;height:46px;border-radius:12px;background:#151821;border:1px solid #2c3140;display:grid;place-items:center;font:600 14px 'JetBrains Mono',monospace;color:#d4a843">{{ td.ini }}</div>
+          <div style="flex:1"><h1 style="font:600 24px/1.15 Cinzel,serif;margin:0">Trade with {{ td.partner }}</h1><div style="font:400 12px 'JetBrains Mono',monospace;color:#8b919c;margin-top:4px">{{ td.id }} · {{ td.date }} · {{ td.by }}</div></div>
+          <span style="font-size:12px;font-weight:700;padding:5px 11px;border-radius:7px;background:{{ td.stBg }};color:{{ td.stColor }}">{{ td.stLabel }}</span>
+        </div>
+        <sc-if value="{{ td.reserved }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:10px;align-items:center;background:rgba(79,191,122,.08);border:1px solid rgba(79,191,122,.35);border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:13px;color:#b8e0c5"><span>🔒</span>Both sides accepted. These cards are reserved and hidden from other matches until you mark the trade completed.</div></sc-if>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin-bottom:18px">
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #232733"><span style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#4fbf7a">YOU GET</span><span style="font:600 13px 'JetBrains Mono',monospace;color:#4fbf7a">{{ td.getEur }}</span></div>
+            <sc-for list="{{ td.get }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #1c202a" style-hover="background:#1a1e29">
+              <div style="width:34px;height:48px;border-radius:3px;overflow:hidden;background:#0e1015;flex:none"><sc-if value="{{ c.img }}" hint-placeholder-val="{{ false }}"><img src="{{ c.img }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block" /></sc-if></div>
+              <span tabindex="0" onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}" onFocus="{{ c.onEnter }}" onBlur="{{ c.onLeave }}" style="flex:1;font-size:14px;font-weight:600;border-bottom:1px dotted #3a4050;width:fit-content">{{ c.name }}</span>
+              <span style="font:400 11px 'JetBrains Mono',monospace;color:#8b919c">×{{ c.qty }}</span>
+              <span style="font:500 13px 'JetBrains Mono',monospace;color:#b8bcc4">{{ c.eur }}</span>
+            </div>
+            </sc-for>
+          </section>
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #232733"><span style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#d4a843">YOU GIVE</span><span style="font:600 13px 'JetBrains Mono',monospace">{{ td.giveEur }}</span></div>
+            <sc-for list="{{ td.give }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #1c202a" style-hover="background:#1a1e29">
+              <div style="width:34px;height:48px;border-radius:3px;overflow:hidden;background:#0e1015;flex:none"><sc-if value="{{ c.img }}" hint-placeholder-val="{{ false }}"><img src="{{ c.img }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block" /></sc-if></div>
+              <span tabindex="0" onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}" onFocus="{{ c.onEnter }}" onBlur="{{ c.onLeave }}" style="flex:1;font-size:14px;font-weight:600;border-bottom:1px dotted #3a4050;width:fit-content">{{ c.name }}</span>
+              <span style="font:400 11px 'JetBrains Mono',monospace;color:#8b919c">×{{ c.qty }}</span>
+              <span style="font:500 13px 'JetBrains Mono',monospace;color:#b8bcc4">{{ c.eur }}</span>
+            </div>
+            </sc-for>
+          </section>
+        </div>
+        <div style="background:#151821;border:1px solid #232733;border-radius:12px;padding:16px 18px;margin-bottom:18px">
+          <div style="display:flex;justify-content:space-between;font:500 12px 'JetBrains Mono',monospace;margin-bottom:8px"><span style="color:#4fbf7a">{{ td.getEur }}</span><span style="color:{{ td.balColor }}">{{ td.balLabel }}</span><span>{{ td.giveEur }}</span></div>
+          <div style="height:8px;border-radius:4px;background:#0e1015;overflow:hidden;display:flex"><div style="height:100%;background:#4fbf7a;transition:width .4s ease;width:{{ td.getPct }}"></div><div style="height:100%;background:#d4a843;flex:1"></div></div>
+          <div style="font-size:11.5px;color:#8b919c;margin-top:8px">Cardmarket trend prices via Scryfall · {{ td.priceNote }}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="padding:12px 16px;border-bottom:1px solid #232733;font-weight:700;font-size:13px">Comments</div>
+            <div style="padding:8px 16px;display:flex;flex-direction:column;gap:12px;max-height:320px;overflow-y:auto">
+              <sc-for list="{{ td.comments }}" as="m" hint-placeholder-count="2">
+              <div style="display:flex;gap:10px;flex-direction:{{ m.dir }}"><div style="width:28px;height:28px;border-radius:8px;background:#0e1015;border:1px solid #2c3140;display:grid;place-items:center;font:600 10px 'JetBrains Mono',monospace;color:#d4a843;flex:none">{{ m.ini }}</div><div style="max-width:78%"><div style="background:{{ m.bg }};color:{{ m.color }};border-radius:10px;padding:9px 12px;font-size:13.5px;line-height:1.45;animation:pop .2s ease-out">{{ m.text }}</div><div style="font:400 10.5px 'JetBrains Mono',monospace;color:#8b919c;margin-top:4px;text-align:{{ m.align }}">{{ m.who }} · {{ m.time }}</div></div></div>
+              </sc-for>
+              <sc-if value="{{ td.noComments }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:#8b919c;padding:10px 0">No comments yet. Agree on where and when to meet.</div></sc-if>
+            </div>
+            <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid #232733"><input value="{{ commentText }}" onChange="{{ setCommentText }}" onKeyDown="{{ commentKey }}" placeholder="Write a comment…" style="flex:1;background:#0e1015;border:1px solid #2c3140;border-radius:8px;color:#e8e6df;padding:9px 12px;font-size:13px" /><button onClick="{{ sendComment }}" style="border:1px solid #2c3140;background:#0e1015;color:#d4a843;border-radius:8px;padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer;transition:border-color .12s" style-hover="border-color:#d4a843">Send</button></div>
+          </section>
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;padding:16px 18px;align-self:start">
+            <div style="font-weight:700;font-size:13px;margin-bottom:12px">Actions</div>
+            <sc-if value="{{ td.canRespond }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <button onClick="{{ td.accept }}" style="border:0;border-radius:8px;background:#4fbf7a;color:#08130c;font-weight:800;font-size:13px;padding:11px;cursor:pointer;transition:filter .12s" style-hover="filter:brightness(1.1)">Accept trade</button>
+                <button onClick="{{ td.counter }}" style="border:1px solid #2c3140;border-radius:8px;background:#0e1015;color:#e8e6df;font-weight:700;font-size:13px;padding:11px;cursor:pointer;transition:border-color .12s" style-hover="border-color:#d4a843">Counter-propose</button>
+                <button onClick="{{ td.decline }}" style="border:1px solid #2c3140;border-radius:8px;background:#0e1015;color:#e06c5a;font-weight:700;font-size:13px;padding:11px;cursor:pointer;transition:border-color .12s" style-hover="border-color:#e06c5a">Decline</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ td.canWithdraw }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:13px;color:#b8bcc4;line-height:1.5;margin-bottom:12px">Waiting for {{ td.partner }} to respond. You'll get a notification.</div>
+              <button onClick="{{ td.decline }}" style="width:100%;border:1px solid #2c3140;border-radius:8px;background:#0e1015;color:#e06c5a;font-weight:700;font-size:13px;padding:11px;cursor:pointer;transition:border-color .12s" style-hover="border-color:#e06c5a">Withdraw proposal</button>
+            </sc-if>
+            <sc-if value="{{ td.canComplete }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:13px;color:#b8bcc4;line-height:1.5;margin-bottom:12px">Hand the cards over, then mark it done. Binders update automatically and prices are frozen for history.</div>
+              <button onClick="{{ td.complete }}" style="width:100%;border:0;border-radius:8px;background:#d4a843;color:#1a1406;font-weight:800;font-size:13px;padding:11px;cursor:pointer;transition:background .12s" style-hover="background:#e6bb52">Mark as completed</button>
+            </sc-if>
+            <sc-if value="{{ td.isClosed }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:13px;color:#b8bcc4;line-height:1.5">{{ td.closedNote }}</div>
+            </sc-if>
+          </section>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- BINDER -->
+      <sc-if value="{{ isBinder }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Binder" style="padding:28px 28px 40px;max-width:1180px;margin:0 auto;animation:rise .35s ease-out both">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:18px">
+          <div style="flex:1"><h1 style="font:600 26px/1.15 Cinzel,serif;margin:0">Your binder</h1><div style="font:400 12px 'JetBrains Mono',monospace;color:#8b919c;margin-top:5px">collection {{ collEur }} · wishlist {{ wishEur }}</div></div>
+          <button onClick="{{ openImport }}" style="border:1px solid #2c3140;border-radius:8px;background:#151821;color:#e8e6df;font-weight:700;font-size:13px;padding:10px 14px;cursor:pointer;transition:border-color .12s" style-hover="border-color:#d4a843">Import list</button>
+          <button onClick="{{ openAdd }}" style="border:0;border-radius:8px;background:#d4a843;color:#1a1406;font-weight:800;font-size:13px;padding:10px 14px;cursor:pointer;transition:background .12s,transform .12s" style-hover="background:#e6bb52;transform:translateY(-1px)">+ Add cards</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:16px">
+          <div style="display:flex;gap:4px;background:#151821;border:1px solid #232733;border-radius:10px;padding:4px">
+            <button onClick="{{ tabColl }}" style="border:0;border-radius:7px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;background:{{ collTabBg }};color:{{ collTabColor }}">Collection <span style="font:600 11px 'JetBrains Mono',monospace;opacity:.8;margin-left:5px">{{ collCount }}</span></button>
+            <button onClick="{{ tabWish }}" style="border:0;border-radius:7px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;background:{{ wishTabBg }};color:{{ wishTabColor }}">Wishlist <span style="font:600 11px 'JetBrains Mono',monospace;opacity:.8;margin-left:5px">{{ wishCount }}</span></button>
+          </div>
+          <div style="flex:1;min-width:180px;display:flex;align-items:center;gap:8px;background:#151821;border:1px solid #232733;border-radius:8px;padding:8px 12px;color:#8b919c;font-size:13px"><span>⌕</span><input placeholder="Filter this list…" value="{{ binderQ }}" onChange="{{ setBinderQ }}" style="flex:1;background:none;border:0;color:#e8e6df;font-size:13px;padding:0;outline:none" /></div>
+          <div style="display:flex;gap:2px;background:#151821;border:1px solid #232733;border-radius:8px;padding:3px">
+            <button onClick="{{ viewList }}" aria-label="List view" style="border:0;border-radius:6px;width:32px;height:30px;cursor:pointer;background:{{ listBg }};color:{{ listColor }}">☰</button>
+            <button onClick="{{ viewGrid }}" aria-label="Grid view" style="border:0;border-radius:6px;width:32px;height:30px;cursor:pointer;background:{{ gridBg }};color:{{ gridColor }}">▦</button>
+          </div>
+        </div>
+        <sc-if value="{{ isListView }}" hint-placeholder-val="{{ true }}">
+        <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:30px minmax(0,1fr) 48px 50px 92px 80px 32px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid #232733;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#8b919c"><span></span><span>CARD</span><span>SET</span><span>LANG</span><span style="text-align:center">QTY</span><span style="text-align:right">EUR</span><span></span></div>
+          <sc-for list="{{ binderRows }}" as="r" hint-placeholder-count="8">
+          <div style="display:grid;grid-template-columns:30px minmax(0,1fr) 48px 50px 92px 80px 32px;gap:10px;align-items:center;padding:8px 16px;border-bottom:1px solid #1c202a;transition:background .12s" style-hover="background:#1a1e29">
+            <div style="display:flex;gap:3px"><sc-for list="{{ r.dots }}" as="d" hint-placeholder-count="1"><span style="width:8px;height:8px;border-radius:50%;background:{{ d.c }};display:inline-block"></span></sc-for></div>
+            <div style="min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button tabindex="0" onMouseEnter="{{ r.onEnter }}" onMouseLeave="{{ r.onLeave }}" onFocus="{{ r.onEnter }}" onBlur="{{ r.onLeave }}" style="background:none;border:0;padding:0;color:#e8e6df;font-size:14px;font-weight:600;cursor:default;border-bottom:1px dotted #3a4050;text-align:left;transition:color .1s" style-hover="color:#d4a843">{{ r.name }}</button><sc-if value="{{ r.tag }}" hint-placeholder-val="{{ false }}"><span style="font-size:10.5px;font-weight:700;color:{{ r.tagColor }};border:1px solid {{ r.tagBorder }};border-radius:5px;padding:1px 6px;white-space:nowrap">{{ r.tag }}</span></sc-if><sc-if value="{{ r.reserved }}" hint-placeholder-val="{{ false }}"><span style="font-size:10.5px;font-weight:700;color:#8b919c;border:1px solid #2c3140;border-radius:5px;padding:1px 6px;white-space:nowrap">🔒 reserved</span></sc-if></div>
+            <span style="font:500 12px 'JetBrains Mono',monospace;color:#8b919c;text-transform:uppercase">{{ r.set }}</span>
+            <select value="{{ r.lang }}" onChange="{{ r.setLang }}" style="background:#0e1015;border:1px solid #2c3140;color:#b8bcc4;border-radius:6px;padding:4px 4px;font:500 11px 'JetBrains Mono',monospace;cursor:pointer"><option>EN</option><option>DE</option><option>PT</option><option>ES</option><option>FR</option><option>IT</option><option>JP</option></select>
+            <div style="display:flex;align-items:center;justify-content:center;gap:2px"><button onClick="{{ r.dec }}" style="width:26px;height:26px;border-radius:6px;border:1px solid #2c3140;background:#0e1015;color:#e8e6df;cursor:pointer;transition:border-color .12s" style-hover="border-color:#d4a843">−</button><span style="font:600 13px 'JetBrains Mono',monospace;width:28px;text-align:center">{{ r.qty }}</span><button onClick="{{ r.inc }}" style="width:26px;height:26px;border-radius:6px;border:1px solid #2c3140;background:#0e1015;color:#e8e6df;cursor:pointer;transition:border-color .12s" style-hover="border-color:#d4a843">+</button></div>
+            <span style="font:500 13px 'JetBrains Mono',monospace;color:#b8bcc4;text-align:right">{{ r.eur }}</span>
+            <button onClick="{{ r.remove }}" aria-label="Remove" style="width:28px;height:28px;border-radius:6px;border:0;background:none;color:#8b919c;cursor:pointer;font-size:14px;transition:color .12s,background .12s" style-hover="color:#e06c5a;background:rgba(224,108,90,.1)">✕</button>
+          </div>
+          </sc-for>
+          <sc-if value="{{ binderEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:44px 20px;text-align:center"><div style="font:600 16px Cinzel,serif;margin-bottom:8px">Nothing here yet</div><div style="font-size:13px;color:#8b919c;margin-bottom:16px">Add cards by name, or paste a list from Archidekt, Moxfield or a spreadsheet.</div><button onClick="{{ openAdd }}" style="border:0;border-radius:8px;background:#d4a843;color:#1a1406;font-weight:800;font-size:13px;padding:10px 14px;cursor:pointer">+ Add cards</button></div></sc-if>
+        </section>
+        </sc-if>
+        <sc-if value="{{ isGridView }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:14px">
+          <sc-for list="{{ binderRows }}" as="r" hint-placeholder-count="8">
+          <div tabindex="0" onMouseEnter="{{ r.onEnter }}" onMouseLeave="{{ r.onLeave }}" onFocus="{{ r.onEnter }}" onBlur="{{ r.onLeave }}" style="position:relative;border-radius:8px;overflow:hidden;background:#151821;border:1px solid #232733;aspect-ratio:488/680;transition:transform .18s,box-shadow .18s,border-color .18s;animation:pop .3s ease-out both" style-hover="transform:translateY(-4px);box-shadow:0 14px 30px rgba(0,0,0,.5);border-color:#d4a843">
+            <sc-if value="{{ r.img }}" hint-placeholder-val="{{ false }}"><img src="{{ r.img }}" alt="{{ r.name }}" style="width:100%;height:100%;object-fit:cover;display:block" /></sc-if>
+            <sc-if value="{{ r.noImg }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;inset:0;background:linear-gradient(90deg,#151821 0,#1e2330 40%,#151821 80%);background-size:800px 100%;animation:shimmer 1.4s linear infinite;display:grid;place-items:center;padding:12px;text-align:center;font-size:12px;color:#8b919c">{{ r.name }}</div></sc-if>
+            <span style="position:absolute;top:6px;right:6px;font:600 11px 'JetBrains Mono',monospace;background:rgba(14,16,21,.9);color:#e8e6df;border-radius:6px;padding:2px 7px">×{{ r.qty }}</span>
+            <span style="position:absolute;left:6px;bottom:6px;font:500 11px 'JetBrains Mono',monospace;background:rgba(14,16,21,.9);color:#d4a843;border-radius:6px;padding:2px 7px">{{ r.eur }}</span>
+          </div>
+          </sc-for>
+        </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <!-- FRIEND -->
+      <sc-if value="{{ isFriend }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Friend binder" style="padding:28px 28px 40px;max-width:1180px;margin:0 auto;animation:rise .35s ease-out both">
+        <button onClick="{{ goDash }}" style="background:none;border:0;color:#8b919c;font-size:13px;cursor:pointer;padding:0;margin-bottom:12px" style-hover="color:#d4a843">← Back</button>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:22px">
+          <div style="width:56px;height:56px;border-radius:14px;background:#151821;border:1px solid #2c3140;display:grid;place-items:center;font:600 18px 'JetBrains Mono',monospace;color:#d4a843">{{ fr.ini }}</div>
+          <div style="flex:1"><h1 style="font:600 26px/1.15 Cinzel,serif;margin:0">{{ fr.u }}</h1><div style="font:400 12px 'JetBrains Mono',monospace;color:#8b919c;margin-top:5px">{{ fr.coll }} cards · {{ fr.wish }} wishes · active {{ fr.active }}</div></div>
+          <button onClick="{{ fr.propose }}" style="border:0;border-radius:8px;background:#d4a843;color:#1a1406;font-weight:800;font-size:13px;padding:10px 14px;cursor:pointer;transition:background .12s" style-hover="background:#e6bb52">Propose trade</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="padding:12px 16px;border-bottom:1px solid #232733;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#4fbf7a">THEY HAVE · YOU WANT · {{ fr.getN }}</div>
+            <sc-for list="{{ fr.get }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #1c202a" style-hover="background:#1a1e29"><div style="display:flex;gap:3px;width:26px"><sc-for list="{{ c.dots }}" as="d" hint-placeholder-count="1"><span style="width:8px;height:8px;border-radius:50%;background:{{ d.c }};display:inline-block"></span></sc-for></div><span tabindex="0" onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}" onFocus="{{ c.onEnter }}" onBlur="{{ c.onLeave }}" style="flex:1;font-size:14px;font-weight:600;border-bottom:1px dotted #3a4050;width:fit-content">{{ c.name }}</span><span style="font:500 13px 'JetBrains Mono',monospace;color:#b8bcc4">{{ c.eur }}</span></div>
+            </sc-for>
+            <sc-if value="{{ fr.getEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:22px 16px;font-size:13px;color:#8b919c;text-align:center">No overlap with your wishlist.</div></sc-if>
+          </section>
+          <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+            <div style="padding:12px 16px;border-bottom:1px solid #232733;font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#d4a843">THEY WANT · YOU HAVE · {{ fr.giveN }}</div>
+            <sc-for list="{{ fr.give }}" as="c" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #1c202a" style-hover="background:#1a1e29"><div style="display:flex;gap:3px;width:26px"><sc-for list="{{ c.dots }}" as="d" hint-placeholder-count="1"><span style="width:8px;height:8px;border-radius:50%;background:{{ d.c }};display:inline-block"></span></sc-for></div><span tabindex="0" onMouseEnter="{{ c.onEnter }}" onMouseLeave="{{ c.onLeave }}" onFocus="{{ c.onEnter }}" onBlur="{{ c.onLeave }}" style="flex:1;font-size:14px;font-weight:600;border-bottom:1px dotted #3a4050;width:fit-content">{{ c.name }}</span><span style="font:500 13px 'JetBrains Mono',monospace;color:#b8bcc4">{{ c.eur }}</span></div>
+            </sc-for>
+            <sc-if value="{{ fr.giveEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:22px 16px;font-size:13px;color:#8b919c;text-align:center">They don't want anything you have right now.</div></sc-if>
+          </section>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- NOTIFICATIONS -->
+      <sc-if value="{{ isNotifs }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Notifications" style="padding:28px 28px 40px;max-width:760px;margin:0 auto;animation:rise .35s ease-out both">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px"><h1 style="font:600 26px/1.15 Cinzel,serif;margin:0;flex:1">Notifications</h1><button onClick="{{ markAllRead }}" style="border:1px solid #2c3140;border-radius:8px;background:#151821;color:#d4a843;font-weight:700;font-size:12px;padding:8px 12px;cursor:pointer">Mark all read</button></div>
+        <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+          <sc-for list="{{ notifsAll }}" as="n" hint-placeholder-count="5">
+          <button onClick="{{ n.open }}" style="display:flex;gap:14px;width:100%;text-align:left;padding:14px 18px;border:0;border-bottom:1px solid #1c202a;background:{{ n.bg }};color:#e8e6df;cursor:pointer;transition:background .12s" style-hover="background:#1a1e29">
+            <div style="width:36px;height:36px;border-radius:9px;background:#0e1015;border:1px solid #232733;display:grid;place-items:center;font-size:16px;flex:none">{{ n.icon }}</div>
+            <div style="flex:1;min-width:0"><div style="font-size:14px;line-height:1.45">{{ n.text }}</div><div style="font:400 11px 'JetBrains Mono',monospace;color:#8b919c;margin-top:4px">{{ n.time }}</div></div>
+            <sc-if value="{{ n.unread }}" hint-placeholder-val="{{ false }}"><span style="width:8px;height:8px;border-radius:50%;background:#d4a843;margin-top:8px;flex:none"></span></sc-if>
+          </button>
+          </sc-for>
+        </section>
+      </div>
+      </sc-if>
+
+      <!-- PROFILE -->
+      <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Profile" style="padding:28px 28px 40px;max-width:820px;margin:0 auto;animation:rise .35s ease-out both">
+        <h1 style="font:600 26px/1.15 Cinzel,serif;margin:0 0 20px">Profile &amp; settings</h1>
+        <section style="background:#151821;border:1px solid #232733;border-radius:12px;padding:22px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:20px;align-items:center">
+          <div style="width:72px;height:72px;border-radius:18px;background:radial-gradient(circle at 30% 30%,#e6bb52,#8a6a1c);display:grid;place-items:center;color:#1a1406;font:700 24px Cinzel,serif;box-shadow:0 0 0 3px #0e1015,0 0 0 4px #d4a843">{{ meInitials }}</div>
+          <div style="flex:1;min-width:200px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+            <div><label style="display:block;font-size:11px;font-weight:700;color:#8b919c;margin-bottom:5px">Display name</label><input value="{{ meName }}" onChange="{{ setMeName }}" style="width:100%;box-sizing:border-box;background:#0e1015;border:1px solid #2c3140;border-radius:8px;color:#e8e6df;padding:9px 11px;font-size:14px" /></div>
+            <div><label style="display:block;font-size:11px;font-weight:700;color:#8b919c;margin-bottom:5px">Username</label><input value="willian" readOnly style="width:100%;box-sizing:border-box;background:#0e1015;border:1px solid #232733;border-radius:8px;color:#8b919c;padding:9px 11px;font-size:14px" /></div>
+            <div><label style="display:block;font-size:11px;font-weight:700;color:#8b919c;margin-bottom:5px">City</label><input value="{{ meCity }}" onChange="{{ setMeCity }}" style="width:100%;box-sizing:border-box;background:#0e1015;border:1px solid #2c3140;border-radius:8px;color:#e8e6df;padding:9px 11px;font-size:14px" /></div>
+            <div><label style="display:block;font-size:11px;font-weight:700;color:#8b919c;margin-bottom:5px">Default card language</label><select value="{{ meLang }}" onChange="{{ setMeLang }}" style="width:100%;background:#0e1015;border:1px solid #2c3140;border-radius:8px;color:#e8e6df;padding:9px 11px;font-size:14px"><option>EN</option><option>DE</option><option>PT</option><option>ES</option><option>FR</option><option>IT</option></select></div>
+          </div>
+        </section>
+        <section style="background:#151821;border:1px solid #232733;border-radius:12px;padding:6px 22px;margin-bottom:16px">
+          <sc-for list="{{ settings }}" as="s" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid #1c202a">
+            <div style="flex:1"><div style="font-size:14px;font-weight:600">{{ s.label }}</div><div style="font-size:12.5px;color:#8b919c;margin-top:3px">{{ s.sub }}</div></div>
+            <button onClick="{{ s.toggle }}" role="switch" aria-checked="{{ s.on }}" style="width:44px;height:26px;border-radius:13px;border:0;cursor:pointer;position:relative;transition:background .2s;background:{{ s.bg }}"><span style="position:absolute;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s cubic-bezier(.2,.8,.2,1);left:{{ s.knob }}"></span></button>
+          </div>
+          </sc-for>
+        </section>
+        <section style="background:#151821;border:1px solid #232733;border-radius:12px;padding:18px 22px;margin-bottom:16px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:6px">Prices</div>
+          <div style="font-size:13px;color:#b8bcc4;line-height:1.5">Cardmarket trend price in EUR via Scryfall, refreshed nightly. Last update <span style="font:500 12px 'JetBrains Mono',monospace;color:#d4a843">{{ priceUpdated }}</span>.</div>
+        </section>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button onClick="{{ saveProfile }}" style="border:0;border-radius:8px;background:#d4a843;color:#1a1406;font-weight:800;font-size:13px;padding:10px 16px;cursor:pointer;transition:background .12s" style-hover="background:#e6bb52">Save changes</button>
+          <button onClick="{{ logout }}" style="border:1px solid #2c3140;border-radius:8px;background:#151821;color:#e06c5a;font-weight:700;font-size:13px;padding:10px 16px;cursor:pointer;transition:border-color .12s" style-hover="border-color:#e06c5a">Sign out</button>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ROSTER (mobile) -->
+      <sc-if value="{{ isRoster }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Roster" style="padding:24px 18px 40px;animation:rise .35s ease-out both">
+        <h1 style="font:600 24px/1.15 Cinzel,serif;margin:0 0 16px">Friends</h1>
+        <section style="background:#151821;border:1px solid #232733;border-radius:12px;overflow:hidden">
+        <sc-for list="{{ roster }}" as="u" hint-placeholder-count="8">
+        <button onClick="{{ u.open }}" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;border:0;border-bottom:1px solid #1c202a;background:none;text-align:left;cursor:pointer;color:#e8e6df" style-hover="background:#1a1e29">
+          <div style="width:36px;height:36px;border-radius:9px;background:#0e1015;border:1px solid #2c3140;display:grid;place-items:center;font:600 12px 'JetBrains Mono',monospace;color:#d4a843">{{ u.ini }}</div>
+          <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">{{ u.u }}</div><div style="font:400 11px 'JetBrains Mono',monospace;color:#8b919c">{{ u.coll }} · {{ u.wish }} wish · {{ u.active }}</div></div>
+          <sc-if value="{{ u.matches }}" hint-placeholder-val="{{ false }}"><span style="font:600 11px 'JetBrains Mono',monospace;color:#d4a843;border:1px solid rgba(212,168,67,.4);border-radius:6px;padding:2px 7px">{{ u.matches }} matches</span></sc-if>
+        </button>
+        </sc-for>
+        </section>
+      </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <!-- Bottom tabs (mobile) -->
+  <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+  <nav style="position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;border-top:1px solid #232733;background:rgba(14,16,21,.96);backdrop-filter:blur(10px);padding:8px 4px 14px;z-index:6">
+    <sc-for list="{{ mobileTabs }}" as="it" hint-placeholder-count="5">
+    <button onClick="{{ it.go }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;padding:6px 10px;min-width:56px;cursor:pointer;color:{{ it.color }};transition:color .12s"><span style="font-size:18px">{{ it.icon }}</span><span style="font-size:10.5px;font-weight:700">{{ it.label }}</span></button>
+    </sc-for>
+  </nav>
+  </sc-if>
+
+  <!-- ADD DRAWER -->
+  <sc-if value="{{ addOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeDrawers }}" style="position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:30;animation:pop .2s ease-out"></div>
+  <aside style="position:absolute;top:0;right:0;bottom:0;width:440px;max-width:100%;background:#151821;border-left:1px solid #2c3140;z-index:31;display:flex;flex-direction:column;animation:slideIn .28s cubic-bezier(.2,.8,.2,1);box-shadow:-30px 0 60px rgba(0,0,0,.4)">
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #232733"><div style="flex:1;font:600 18px Cinzel,serif">Add cards</div><button onClick="{{ closeDrawers }}" aria-label="Close" style="width:32px;height:32px;border-radius:8px;border:1px solid #2c3140;background:#0e1015;color:#e8e6df;cursor:pointer">✕</button></div>
+    <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;flex:1">
+      <div style="display:flex;gap:4px;background:#0e1015;border:1px solid #232733;border-radius:10px;padding:4px">
+        <button onClick="{{ addToColl }}" style="flex:1;border:0;border-radius:7px;padding:8px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;background:{{ addCollBg }};color:{{ addCollColor }}">Collection</button>
+        <button onClick="{{ addToWish }}" style="flex:1;border:0;border-radius:7px;padding:8px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;background:{{ addWishBg }};color:{{ addWishColor }}">Wishlist</button>
+      </div>
+      <div style="position:relative">
+        <label style="display:block;font-size:11px;font-weight:700;color:#8b919c;margin-bottom:6px">Card name</label>
+        <input value="{{ addQ }}" onChange="{{ setAddQ }}" onKeyDown="{{ addKey }}" placeholder="Start typing… e.g. rhy stu" autoFocus style="width:100%;box-sizing:border-box;background:#0e1015;border:1px solid #2c3140;border-radius:8px;color:#e8e6df;padding:11px 12px;font-size:15px" />
+        <sc-if value="{{ addLoading }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:12px;top:34px;width:14px;height:14px;border:2px solid #2c3140;border-top-color:#d4a843;border-radius:50%;animation:spin .7s linear infinite"></span></sc-if>
+        <sc-if value="{{ hasSuggestions }}" hint-placeholder-val="{{ false }}">
+        <div role="listbox" style="position:absolute;left:0;right:0;top:100%;margin-top:6px;background:#0e1015;border:1px solid #2c3140;border-radius:10px;overflow:hidden;z-index:5;box-shadow:0 20px 40px rgba(0,0,0,.5);animation:pop .15s ease-out;max-height:260px;overflow-y:auto">
+          <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="4">
+          <button role="option" onClick="{{ s.pick }}" onMouseEnter="{{ s.hover }}" style="display:block;width:100%;text-align:left;border:0;padding:9px 12px;font-size:13.5px;cursor:pointer;background:{{ s.bg }};color:{{ s.color }};transition:background .08s">{{ s.name }}</button>
+          </sc-for>
+        </div>
+        </sc-if>
+        <div style="font-size:11px;color:#8b919c;margin-top:6px">Scryfall autocomplete · ↑↓ to choose · Enter to add</div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="width:150px;flex:none;aspect-ratio:488/680;border-radius:8px;overflow:hidden;background:#0e1015;border:1px solid #2c3140">
+          <sc-if value="{{ addImg }}" hint-placeholder-val="{{ false }}"><img src="{{ addImg }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;animation:pop .25s ease-out" /></sc-if>
+          <sc-if value="{{ addNoImg }}" hint-placeholder-val="{{ true }}"><div style="width:100%;height:100%;display:grid;place-items:center;font-size:11px;color:#6e7480;text-align:center;padding:10px">Pick a card to preview</div></sc-if>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+          <div><div style="font-size:14px;font-weight:700;min-height:20px">{{ addName }}</div><div style="font-size:12px;color:#8b919c;margin-top:2px;line-height:1.4">{{ addMeta }}</div><div style="font:600 14px 'JetBrains Mono',monospace;color:#d4a843;margin-top:6px">{{ addEur }}</div></div>
+          <div style="display:flex;gap:10px">
+            <div><label style="display:block;font-size:11px;font-weight:700;color:#8b919c;margin-bottom:5px">Qty</label><div style="display:flex;align-items:center;gap:2px"><button onClick="{{ addDec }}" style="width:30px;height:32px;border-radius:6px;border:1px solid #2c3140;background:#0e1015;color:#e8e6df;cursor:pointer">−</button><span style="font:600 14px 'JetBrains Mono',monospace;width:30px;text-align:center">{{ addQty }}</span><button onClick="{{ addInc }}" style="width:30px;height:32px;border-radius:6px;border:1px solid #2c3140;background:#0e1015;color:#e8e6df;cursor:pointer">+</button></div></div>
+            <div style="flex:1"><label style="display:block;font-size:11px;font-weight:700;color:#8b919c;margin-bottom:5px">Language</label><select value="{{ addLang }}" onChange="{{ setAddLang }}" style="width:100%;background:#0e1015;border:1px solid #2c3140;border-radius:6px;color:#e8e6df;padding:7px 8px;font-size:13px;height:32px"><option>EN</option><option>DE</option><option>PT</option><option>ES</option><option>FR</option><option>IT</option><option>JP</option></select></div>
+          </div>
+          <button onClick="{{ addCommit }}" disabled="{{ addDisabled }}" style="border:0;border-radius:8px;background:#d4a843;color:#1a1406;font-weight:800;font-size:13px;padding:11px;cursor:pointer;transition:background .12s;opacity:{{ addOpacity }}" style-hover="background:#e6bb52">Add to {{ addTargetLabel }}</button>
+        </div>
+      </div>
+      <sc-if value="{{ hasRecent }}" hint-placeholder-val="{{ false }}">
+      <div><div style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#8b919c;margin-bottom:8px">JUST ADDED</div>
+        <sc-for list="{{ recentAdds }}" as="r" hint-placeholder-count="2">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1c202a;font-size:13px;animation:pop .25s ease-out"><span style="color:#4fbf7a">✓</span><span style="flex:1">{{ r.qty }}× {{ r.name }} <span style="color:#8b919c">· {{ r.lang }} · {{ r.target }}</span></span><button onClick="{{ r.undo }}" style="background:none;border:0;color:#d4a843;font-weight:700;font-size:12px;cursor:pointer">Undo</button></div>
+        </sc-for>
+      </div>
+      </sc-if>
+    </div>
+  </aside>
+  </sc-if>
+
+  <!-- IMPORT DRAWER -->
+  <sc-if value="{{ importOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeDrawers }}" style="position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:30;animation:pop .2s ease-out"></div>
+  <aside style="position:absolute;top:0;right:0;bottom:0;width:480px;max-width:100%;background:#151821;border-left:1px solid #2c3140;z-index:31;display:flex;flex-direction:column;animation:slideIn .28s cubic-bezier(.2,.8,.2,1);box-shadow:-30px 0 60px rgba(0,0,0,.4)">
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #232733"><div style="flex:1;font:600 18px Cinzel,serif">Import list</div><button onClick="{{ closeDrawers }}" aria-label="Close" style="width:32px;height:32px;border-radius:8px;border:1px solid #2c3140;background:#0e1015;color:#e8e6df;cursor:pointer">✕</button></div>
+    <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;flex:1">
+      <div style="display:flex;gap:4px;background:#0e1015;border:1px solid #232733;border-radius:10px;padding:4px">
+        <button onClick="{{ addToColl }}" style="flex:1;border:0;border-radius:7px;padding:8px;font-size:13px;font-weight:700;cursor:pointer;background:{{ addCollBg }};color:{{ addCollColor }}">Into collection</button>
+        <button onClick="{{ addToWish }}" style="flex:1;border:0;border-radius:7px;padding:8px;font-size:13px;font-weight:700;cursor:pointer;background:{{ addWishBg }};color:{{ addWishColor }}">Into wishlist</button>
+      </div>
+      <div style="font-size:13px;color:#b8bcc4;line-height:1.5">Paste any decklist or export: Archidekt, Moxfield, ManaBox, Deckbox CSV. One card per line, quantity first. Nothing is saved until you confirm the preview.</div>
+      <textarea value="{{ importText }}" onChange="{{ setImportText }}" rows="7" placeholder="4 Lightning Bolt&#10;1 Sol Ring (CMM) 464&#10;2 Rhystic Study" style="width:100%;box-sizing:border-box;background:#0e1015;border:1px solid #2c3140;border-radius:8px;color:#e8e6df;padding:11px 12px;font:400 13px 'JetBrains Mono',monospace;resize:vertical"></textarea>
+      <button onClick="{{ parseImport }}" style="border:1px solid #2c3140;border-radius:8px;background:#0e1015;color:#e8e6df;font-weight:700;font-size:13px;padding:10px;cursor:pointer;transition:border-color .12s" style-hover="border-color:#d4a843">Preview changes</button>
+      <sc-if value="{{ hasImportPreview }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#0e1015;border:1px solid #232733;border-radius:10px;overflow:hidden;animation:pop .25s ease-out">
+        <div style="display:flex;gap:14px;padding:10px 14px;border-bottom:1px solid #232733;font:500 11px 'JetBrains Mono',monospace"><span style="color:#4fbf7a">+{{ impNew }} new</span><span style="color:#d4a843">↑{{ impUpd }} updated</span><span style="color:#e06c5a">?{{ impUnk }} unknown</span></div>
+        <sc-for list="{{ importRows }}" as="r" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid #1c202a;font-size:13px"><span style="font:600 11px 'JetBrains Mono',monospace;color:{{ r.color }};width:14px">{{ r.sym }}</span><span style="flex:1;color:{{ r.nameColor }}">{{ r.qty }}× {{ r.name }}</span><span style="font-size:11px;color:#8b919c">{{ r.note }}</span></div>
+        </sc-for>
+      </div>
+      <button onClick="{{ commitImport }}" style="border:0;border-radius:8px;background:#d4a843;color:#1a1406;font-weight:800;font-size:13px;padding:11px;cursor:pointer;transition:background .12s" style-hover="background:#e6bb52">Apply {{ impApply }} changes</button>
+      </sc-if>
+    </div>
+  </aside>
+  </sc-if>
+
+  <!-- TOASTS -->
+  <div style="position:absolute;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:60;pointer-events:none">
+    <sc-for list="{{ toasts }}" as="t" hint-placeholder-count="0">
+    <div style="pointer-events:auto;display:flex;align-items:center;gap:10px;background:#1a1e29;border:1px solid #2c3140;border-left:3px solid {{ t.color }};border-radius:10px;padding:11px 14px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.5);animation:toastIn .25s cubic-bezier(.2,.8,.2,1)">{{ t.text }}<sc-if value="{{ t.undo }}" hint-placeholder-val="{{ false }}"><button onClick="{{ t.undo }}" style="background:none;border:0;color:#d4a843;font-weight:700;font-size:12px;cursor:pointer;margin-left:6px">Undo</button></sc-if></div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- CARD HOVER POPUP -->
+<sc-if value="{{ hoverOn }}" hint-placeholder-val="{{ false }}">
+<div role="tooltip" style="position:fixed;z-index:100;pointer-events:none;width:232px;left:{{ hoverX }}px;top:{{ hoverY }}px;animation:pop .16s ease-out;filter:drop-shadow(0 20px 40px rgba(0,0,0,.6))">
+  <div style="position:absolute;top:22px;width:10px;height:10px;background:#1a1e29;border-left:1px solid #2c3140;border-bottom:1px solid #2c3140;transform:rotate(45deg);left:{{ hoverArrowL }};right:{{ hoverArrowR }}"></div>
+  <div style="background:#1a1e29;border:1px solid #2c3140;border-radius:12px;padding:8px;overflow:hidden">
+    <div style="width:100%;aspect-ratio:488/680;border-radius:9px;overflow:hidden;background:#0e1015">
+      <sc-if value="{{ hoverImg }}" hint-placeholder-val="{{ false }}"><img src="{{ hoverImg }}" alt="{{ hoverName }}" style="width:100%;height:100%;object-fit:cover;display:block" /></sc-if>
+      <sc-if value="{{ hoverNoImg }}" hint-placeholder-val="{{ true }}"><div style="width:100%;height:100%;background:linear-gradient(90deg,#151821 0,#1e2330 40%,#151821 80%);background-size:800px 100%;animation:shimmer 1.4s linear infinite;display:grid;place-items:center;font-size:12px;color:#8b919c;padding:14px;text-align:center">{{ hoverLoadingText }}</div></sc-if>
+    </div>
+    <div style="padding:9px 4px 3px"><div style="font-size:13px;font-weight:700;line-height:1.3">{{ hoverName }}</div><div style="font-size:11.5px;color:#8b919c;margin-top:3px;line-height:1.4">{{ hoverType }}</div><div style="display:flex;justify-content:space-between;margin-top:6px;font:500 11.5px 'JetBrains Mono',monospace"><span style="color:#8b919c;text-transform:uppercase">{{ hoverSet }}</span><span style="color:#d4a843">{{ hoverEur }}</span></div></div>
+  </div>
+</div>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mobile&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;reduceMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;liveScryfall&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Data&quot;}}">
+const GOLD='#d4a843', INK='#1a1406', GREEN='#4fbf7a', RED='#e06c5a';
+const MANA={W:'#f3ecc7',U:'#4a90d9',B:'#9b8bb0',R:'#e05a48',G:'#4fae6a'};
+const FB={ // fallback [eur, colors, set]
+'Peregrin Took':[0.35,'G','ltr'],'The Battle of Bywater':[2.4,'W','ltr'],'Delighted Halfling':[9.5,'G','ltr'],'Lotho, Corrupt Shirriff':[0.6,'WB','ltr'],'Bilbo, Fellow Conspirator':[0.2,'W','ltc'],'Bilbo, Unexpected Adventurer':[0.3,'W','ltc'],'Samwise Gamgee':[0.6,'GW','ltr'],'Gandalf the Grey':[1.1,'UR','ltr'],"Frodo, Sauron's Bane":[0.5,'WB','ltr'],'Rosie Cotton of South Lane':[1.2,'W','ltr'],'Lightning Bolt':[1.6,'R','clu'],'Counterspell':[1.0,'U','cmm'],'Sol Ring':[1.7,'','cmm'],'Arcane Signet':[1.0,'','cmm'],'Swords to Plowshares':[2.1,'W','cmm'],'Rhystic Study':[32,'U','cmm'],'Cyclonic Rift':[21,'U','cmm'],'Smothering Tithe':[24,'W','cmm'],'Dockside Extortionist':[38,'R','2xm'],'Esper Sentinel':[8.5,'W','mh2'],"Thassa's Oracle":[14,'U','thb'],'Fierce Guardianship':[38,'U','cmm'],"Teferi's Protection":[24,'W','cmm'],'Mana Crypt':[145,'','2xm'],'Jeweled Lotus':[68,'','cmm'],'The One Ring':[58,'','ltr'],'Orcish Bowmasters':[34,'B','ltr']};
+const USERS=[{u:'vinibotto',coll:6109,wish:0,active:'2 h ago',on:true},{u:'João',coll:6020,wish:0,active:'yesterday'},{u:'felix',coll:2145,wish:18,active:'12 min ago',on:true},{u:'yuri',coll:1981,wish:134,active:'1 h ago',on:true},{u:'yannick',coll:1925,wish:0,active:'3 d ago'},{u:'felipe_marin',coll:1512,wish:18,active:'5 d ago'},{u:'issa',coll:1439,wish:0,active:'2 w ago'},{u:'Matheus',coll:285,wish:0,active:'1 w ago'},{u:'itapira',coll:3,wish:4,active:'3 w ago'},{u:'guilherme',coll:0,wish:10,active:'2 d ago',on:true},{u:'Alonso',coll:0,wish:0,active:'1 mo ago'},{u:'dusk_and_dawn',coll:0,wish:0,active:'1 mo ago'},{u:'r3v0lt',coll:0,wish:0,active:'2 mo ago'},{u:'ralf',coll:0,wish:0,active:'2 mo ago'}];
+const GET=[['Peregrin Took','felix',['yuri','João','vinibotto']],['The Battle of Bywater','felix',['yuri']],['Delighted Halfling','felix',[]],['Lotho, Corrupt Shirriff','felix',[]],['Bilbo, Fellow Conspirator','felix',[]],['Bilbo, Unexpected Adventurer','felix',[]],['Samwise Gamgee','vinibotto',[]],['Gandalf the Grey','yuri',[]],["Frodo, Sauron's Bane",'João',[]],['Rosie Cotton of South Lane','yuri',[]]];
+const GIVE=[['Rhystic Study','felix'],['Orcish Bowmasters','felix'],['Sol Ring','yuri'],['Arcane Signet','yuri'],['Lightning Bolt','guilherme'],['Counterspell','guilherme'],['Cyclonic Rift','felipe_marin']];
+const ST={awaiting_them:['Awaiting reply','rgba(212,168,67,.15)',GOLD],awaiting_you:['Your turn','rgba(74,144,217,.18)','#8fc0f0'],accepted:['Accepted · reserved','rgba(79,191,122,.15)',GREEN],completed:['Completed','rgba(139,145,156,.15)','#b8bcc4'],declined:['Declined','rgba(224,108,90,.15)',RED],withdrawn:['Withdrawn','rgba(139,145,156,.15)','#b8bcc4']};
+const eur=n=>new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
+const ini=s=>s.replace(/[^a-zA-Z0-9]/g,'').slice(0,2).toUpperCase();
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+class Component extends DCLogic {
+  state={
+    screen:'login',loginUser:'',loginPass:'',globalQ:'',notifOpen:false,narrow:false,
+    tradeTab:'matches',tradeId:null,friendU:null,binderTab:'coll',binderView:'list',binderQ:'',
+    addOpen:false,importOpen:false,addTarget:'coll',addQ:'',suggestions:[],sugIdx:-1,addPick:null,addQty:1,addLang:'EN',addLoading:false,recent:[],
+    importText:'',importRows:null,commentText:'',
+    draft:{partner:'felix',get:{},give:{},note:''},
+    meName:'Willian',meCity:'Berlin',meLang:'EN',
+    settings:{match:true,proposal:true,comment:true,digest:false,pause:false},
+    hover:null,cards:{},toasts:[],
+    collection:[['Lightning Bolt',4,'EN'],['Counterspell',2,'EN'],['Sol Ring',3,'EN'],['Arcane Signet',2,'DE'],['Swords to Plowshares',1,'EN'],['Rhystic Study',1,'EN'],['Cyclonic Rift',1,'EN'],['Smothering Tithe',1,'DE'],['Dockside Extortionist',1,'EN'],['Esper Sentinel',2,'EN'],["Thassa's Oracle",1,'EN'],['Fierce Guardianship',1,'EN'],["Teferi's Protection",1,'EN'],['Orcish Bowmasters',1,'EN'],['Mana Crypt',1,'EN'],['Jeweled Lotus',1,'EN'],['The One Ring',1,'EN']].map(([n,q,l])=>({name:n,qty:q,lang:l})),
+    wishlist:['Bilbo, Fellow Conspirator','Bilbo, Unexpected Adventurer','Delighted Halfling','Lotho, Corrupt Shirriff','Peregrin Took','The Battle of Bywater','Samwise Gamgee','Gandalf the Grey',"Frodo, Sauron's Bane",'Rosie Cotton of South Lane'].map(n=>({name:n,qty:1,lang:'EN'})),
+    trades:[
+      {id:'T-1042',partner:'felix',status:'awaiting_them',by:'proposed by you',date:'today, 19:12',get:[['Peregrin Took',1],['The Battle of Bywater',1],['Delighted Halfling',1]],give:[['Rhystic Study',1]],comments:[{who:'you',text:'Can bring them Friday to the Spiel & Brett meetup?',time:'19:14'}]},
+      {id:'T-1041',partner:'yuri',status:'awaiting_you',by:'proposed by yuri',date:'today, 17:40',get:[['Gandalf the Grey',1],['Rosie Cotton of South Lane',1]],give:[['Sol Ring',1],['Arcane Signet',1]],comments:[{who:'yuri',text:'The Signet is the German one, right? Fine for me.',time:'17:41'}]},
+      {id:'T-1039',partner:'vinibotto',status:'accepted',by:'proposed by you',date:'yesterday',get:[['Samwise Gamgee',1]],give:[['Lightning Bolt',2]],comments:[{who:'vinibotto',text:'Deal. Saturday at Felix\'s place.',time:'yesterday'}]},
+      {id:'T-1031',partner:'guilherme',status:'completed',by:'proposed by guilherme',date:'18 Aug 2026',get:[['Swords to Plowshares',1]],give:[['Counterspell',1]],comments:[],frozen:{'Swords to Plowshares':1.9,'Counterspell':0.9}},
+      {id:'T-1027',partner:'João',status:'declined',by:'proposed by you',date:'2 Aug 2026',get:[["Frodo, Sauron's Bane",1]],give:[['Esper Sentinel',1]],comments:[{who:'João',text:'Keeping Frodo for my Commander deck, sorry!',time:'2 Aug'}]}
+    ],
+    notifs:[
+      {id:1,icon:'⇄',text:'yuri proposed a trade: Gandalf the Grey + Rosie Cotton for Sol Ring + Arcane Signet',time:'1 h ago',unread:true,go:{screen:'trade',tradeId:'T-1041'}},
+      {id:2,icon:'✦',text:'felix added 12 cards — 4 match your wishlist',time:'3 h ago',unread:true,go:{screen:'friend',friendU:'felix'}},
+      {id:3,icon:'🔒',text:'vinibotto accepted T-1039. Samwise Gamgee and 2× Lightning Bolt are reserved.',time:'yesterday',unread:false,go:{screen:'trade',tradeId:'T-1039'}},
+      {id:4,icon:'✦',text:"New match: Frodo, Sauron's Bane is available from João",time:'2 d ago',unread:false,go:{screen:'friend',friendU:'João'}},
+      {id:5,icon:'✓',text:'guilherme marked T-1031 completed. Prices frozen for history.',time:'3 w ago',unread:false,go:{screen:'trade',tradeId:'T-1031'}}
+    ]
+  };
+  cards={}; hoverT=null; leaveT=null; acT=null; acSeq=0; toastN=0;
+
+  componentDidMount(){
+    const el=this._rootEl||document.body;
+    this.ro=new ResizeObserver(([e])=>{const w=e.contentRect.width;const narrow=w<760;if(narrow!==this.state.narrow)this.setState({narrow})});
+    this.ro.observe(document.body);
+    this.loadCards();
+  }
+  componentWillUnmount(){this.ro&&this.ro.disconnect()}
+
+  isMobile(){return !!(this.props.mobile||this.state.narrow)}
+  live(){return this.props.liveScryfall!==false}
+
+  allNames(){const s=new Set(Object.keys(FB));this.state.collection.forEach(c=>s.add(c.name));this.state.wishlist.forEach(c=>s.add(c.name));return [...s]}
+  async loadCards(){
+    if(!this.live())return;
+    const names=this.allNames().filter(n=>!this.cards[n]);
+    for(let i=0;i<names.length;i+=75){
+      const chunk=names.slice(i,i+75);
+      try{
+        const r=await fetch('https://api.scryfall.com/cards/collection',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({identifiers:chunk.map(name=>({name}))})});
+        const j=await r.json();
+        (j.data||[]).forEach(c=>this.cards[c.name]=this.norm(c));
+        (j.not_found||[]).forEach(nf=>{ if(nf.name) this.cards[nf.name]={missing:true} });
+        this.setState({cards:{...this.cards}});
+      }catch(e){}
+      if(i+75<names.length)await sleep(550);
+    }
+  }
+  norm(c){const f=c.card_faces&&!c.image_uris?c.card_faces[0]:c;const iu=f.image_uris||{};return{name:c.name,img:iu.normal,small:iu.small,eur:c.prices?.eur?+c.prices.eur:(c.prices?.eur_foil?+c.prices.eur_foil:null),ci:(c.color_identity||[]).join(''),type:c.type_line,set:c.set,setName:c.set_name,cm:c.purchase_uris?.cardmarket}}
+  card(name){const c=this.cards[name];const fb=FB[name]||[null,'',''];return{name,img:c?.img,small:c?.small,eur:c?.eur??fb[0],ci:c?.ci??fb[1],type:c?.type,set:c?.set||fb[2],setName:c?.setName,loading:!c&&this.live()&&!this.cards[name]}}
+  dots(ci){const a=(ci||'').split('').filter(x=>MANA[x]).map(c=>({c:MANA[c]}));return a.length?a:[{c:'#8b919c'}]}
+  price(n){const p=this.card(n).eur;return p==null?'—':eur(p)}
+  hov(name){return{onEnter:e=>this.hoverIn(name,e),onLeave:()=>this.hoverOut()}}
+
+  hoverIn(name,e){
+    const r=e.currentTarget.getBoundingClientRect();clearTimeout(this.leaveT);clearTimeout(this.hoverT);
+    const place=()=>{const W=232,H=430,vw=window.innerWidth,vh=window.innerHeight;let right=r.right+14<=vw-W-8;let x=right?r.right+14:r.left-W-14;if(x<8){x=8}let y=Math.min(Math.max(8,r.top-24),vh-H-8);return{name,x,y,right}};
+    if(this.state.hover)this.setState({hover:place()});else this.hoverT=setTimeout(()=>this.setState({hover:place()}),350);
+    if(this.live()&&!this.cards[name])this.fetchOne(name);
+  }
+  hoverOut(){clearTimeout(this.hoverT);clearTimeout(this.leaveT);this.leaveT=setTimeout(()=>this.setState({hover:null}),120)}
+  async fetchOne(name){try{const r=await fetch('https://api.scryfall.com/cards/named?exact='+encodeURIComponent(name),{headers:{Accept:'application/json'}});if(!r.ok){this.cards[name]={missing:true};return}const c=await r.json();this.cards[name]=this.norm(c);this.setState({cards:{...this.cards}})}catch(e){}}
+
+  toast(text,color=GOLD,undo){const id=++this.toastN;this.setState(s=>({toasts:[...s.toasts,{id,text,color,undo}]}));setTimeout(()=>this.setState(s=>({toasts:s.toasts.filter(t=>t.id!==id)})),4200)}
+  go(screen,extra={}){this.setState({screen,notifOpen:false,hover:null,addOpen:false,importOpen:false,...extra});const m=document.querySelector('main');if(m)m.scrollTop=0}
+
+  // ---- autocomplete
+  setAddQ(v){this.setState({addQ:v,sugIdx:-1,addPick:null});clearTimeout(this.acT);if(v.trim().length<2){this.setState({suggestions:[]});return}
+    this.acT=setTimeout(async()=>{const seq=++this.acSeq;this.setState({addLoading:true});let names=[];
+      if(this.live()){try{const r=await fetch('https://api.scryfall.com/cards/autocomplete?q='+encodeURIComponent(v),{headers:{Accept:'application/json'}});const j=await r.json();names=j.data||[]}catch(e){}}
+      if(!names.length)names=Object.keys(FB).filter(n=>n.toLowerCase().includes(v.toLowerCase()));
+      if(seq===this.acSeq)this.setState({suggestions:names.slice(0,8),addLoading:false})},250)}
+  pickSuggestion(name){this.setState({addQ:name,suggestions:[],addPick:name,sugIdx:-1});if(!this.cards[name])this.fetchOne(name)}
+  addKey(e){const {suggestions,sugIdx}=this.state;if(e.key==='ArrowDown'){e.preventDefault();this.setState({sugIdx:Math.min(sugIdx+1,suggestions.length-1)})}else if(e.key==='ArrowUp'){e.preventDefault();this.setState({sugIdx:Math.max(sugIdx-1,0)})}else if(e.key==='Enter'){e.preventDefault();if(sugIdx>=0&&suggestions[sugIdx])this.pickSuggestion(suggestions[sugIdx]);else if(this.state.addPick)this.addCommit();else if(suggestions[0])this.pickSuggestion(suggestions[0])}else if(e.key==='Escape')this.setState({suggestions:[]})}
+  listKey(){return this.state.addTarget==='coll'?'collection':'wishlist'}
+  addCommit(){const name=this.state.addPick;if(!name)return;const key=this.listKey(),{addQty:qty,addLang:lang}=this.state;
+    this.setState(s=>{const list=[...s[key]];const i=list.findIndex(c=>c.name===name&&c.lang===lang);if(i>=0)list[i]={...list[i],qty:list[i].qty+qty};else list.unshift({name,qty,lang});
+      return{[key]:list,recent:[{name,qty,lang,target:key,undo:()=>this.undoAdd(name,qty,lang,key)},...s.recent].slice(0,4),addQ:'',addPick:null,addQty:1,suggestions:[]}});
+    this.toast(`${qty}× ${name} added to ${key}`,GREEN)}
+  undoAdd(name,qty,lang,key){this.setState(s=>{const list=s[key].map(c=>c.name===name&&c.lang===lang?{...c,qty:c.qty-qty}:c).filter(c=>c.qty>0);return{[key]:list,recent:s.recent.filter(r=>!(r.name===name&&r.qty===qty&&r.lang===lang))}})}
+
+  // ---- import
+  parseImport(){const key=this.listKey();const cur=this.state[key];const rows=this.state.importText.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const m=l.match(/^(\d+)\s*x?\s+(.+?)(\s+\([A-Za-z0-9]{2,5}\).*)?$/);let qty=1,name=l;if(m){qty=+m[1];name=m[2]}name=name.replace(/,\s*$/,'').replace(/^"|"$/g,'');
+      const known=FB[name]||this.cards[name]&&!this.cards[name].missing||Object.keys(FB).find(k=>k.toLowerCase()===name.toLowerCase());
+      const canon=typeof known==='string'?known:name;const ex=cur.find(c=>c.name===canon);
+      if(!known)return{name,qty,kind:'unk',sym:'?',color:RED,nameColor:'#e8e6df',note:'not found on Scryfall'};
+      if(ex)return{name:canon,qty,kind:'upd',sym:'↑',color:GOLD,nameColor:'#e8e6df',note:`have ${ex.qty} → ${ex.qty+qty}`};
+      return{name:canon,qty,kind:'new',sym:'+',color:GREEN,nameColor:'#e8e6df',note:this.price(canon)}});
+    this.setState({importRows:rows});
+    if(this.live()){const unk=rows.filter(r=>r.kind==='unk').map(r=>r.name).slice(0,75);if(unk.length)this.verifyUnknown(unk)}}
+  async verifyUnknown(names){try{const r=await fetch('https://api.scryfall.com/cards/collection',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({identifiers:names.map(name=>({name}))})});const j=await r.json();(j.data||[]).forEach(c=>this.cards[c.name]=this.norm(c));const found=new Set((j.data||[]).map(c=>c.name.toLowerCase()));
+    this.setState(s=>({cards:{...this.cards},importRows:(s.importRows||[]).map(r=>{if(r.kind==='unk'&&found.has(r.name.toLowerCase())){const canon=(j.data||[]).find(c=>c.name.toLowerCase()===r.name.toLowerCase()).name;return{...r,name:canon,kind:'new',sym:'+',color:GREEN,note:this.price(canon)}}return r})}))}catch(e){}}
+  commitImport(){const key=this.listKey();const rows=(this.state.importRows||[]).filter(r=>r.kind!=='unk');const before=this.state[key];
+    this.setState(s=>{const list=[...s[key]];rows.forEach(r=>{const i=list.findIndex(c=>c.name===r.name);if(i>=0)list[i]={...list[i],qty:list[i].qty+r.qty};else list.push({name:r.name,qty:r.qty,lang:s.meLang})});return{[key]:list,importRows:null,importText:'',importOpen:false}});
+    this.toast(`${rows.length} cards imported into ${key}`,GREEN,()=>this.setState({[key]:before}));this.loadCards()}
+
+  // ---- binder
+  rowOps(key,i){return{inc:()=>this.setState(s=>({[key]:s[key].map((c,j)=>j===i?{...c,qty:c.qty+1}:c)})),dec:()=>this.setState(s=>({[key]:s[key].map((c,j)=>j===i?{...c,qty:Math.max(1,c.qty-1)}:c)})),setLang:e=>{const v=e.target.value;this.setState(s=>({[key]:s[key].map((c,j)=>j===i?{...c,lang:v}:c)}))},
+    remove:()=>{const it=this.state[key][i];const before=this.state[key];this.setState(s=>({[key]:s[key].filter((_,j)=>j!==i)}));this.toast(`Removed ${it.name}`,RED,()=>this.setState({[key]:before}))}}}
+
+  // ---- trades
+  tradeVals(t){const g=t.get.reduce((a,[n,q])=>a+(t.frozen?.[n]??this.card(n).eur??0)*q,0),v=t.give.reduce((a,[n,q])=>a+(t.frozen?.[n]??this.card(n).eur??0)*q,0);const d=g-v;return{g,v,d,bal:(d>=0?'+':'−')+eur(Math.abs(d)),balColor:Math.abs(d)<2?'#b8bcc4':d>0?GREEN:GOLD}}
+  setStatus(id,status,msg){this.setState(s=>({trades:s.trades.map(t=>t.id===id?{...t,status}:t)}));if(msg)this.toast(msg,status==='accepted'?GREEN:status==='declined'||status==='withdrawn'?RED:GOLD)}
+  sendComment(){const txt=this.state.commentText.trim();if(!txt)return;this.setState(s=>({commentText:'',trades:s.trades.map(t=>t.id===s.tradeId?{...t,comments:[...t.comments,{who:'you',text:txt,time:'now'}]}:t)}))}
+  sendDraft(){const {draft}=this.state;const get=Object.entries(draft.get).filter(([,v])=>v).map(([n])=>[n,1]),give=Object.entries(draft.give).filter(([,v])=>v).map(([n])=>[n,1]);if(!get.length&&!give.length)return;
+    const id='T-'+(1043+this.state.trades.filter(t=>+t.id.slice(2)>=1043).length);const t={id,partner:draft.partner,status:'awaiting_them',by:'proposed by you',date:'just now',get,give,comments:draft.note?[{who:'you',text:draft.note,time:'now'}]:[]};
+    this.setState(s=>({trades:[t,...s.trades],draft:{partner:draft.partner,get:{},give:{},note:''}}));this.go('trade',{tradeId:id,tradeTab:'proposals'});this.toast(`Proposal sent to ${draft.partner}`,GREEN)}
+  startTrade(partner){const p=partner||'felix';const get={};GET.filter(([n,f,o])=>f===p||o.includes(p)).forEach(([n])=>get[n]=true);const give={};GIVE.filter(([,to])=>to===p).forEach(([n])=>give[n]=true);this.go('newtrade',{draft:{partner:p,get,give,note:''}})}
+
+  renderVals(){
+    const s=this.state,mobile=this.isMobile(),sc=s.screen;
+    const isApp=sc!=='login';
+    const isSel=x=>sc===x;
+    const unread=s.notifs.filter(n=>n.unread).length;
+    const openTrades=s.trades.filter(t=>['awaiting_them','awaiting_you','accepted'].includes(t.status));
+    const reservedNames=new Set(s.trades.filter(t=>t.status==='accepted').flatMap(t=>[...t.get,...t.give].map(([n])=>n)));
+    const getTotal=GET.reduce((a,[n])=>a+(this.card(n).eur||0),0),giveTotal=GIVE.reduce((a,[n])=>a+(this.card(n).eur||0),0);
+    const matchCount=u=>GET.filter(([n,f,o])=>f===u||o.includes(u)).length+GIVE.filter(([,to])=>to===u).length;
+    const navBtn=(label,icon,screens,go,badge)=>{const on=screens.includes(sc);return{label,icon,go,badge,bg:on?'#151821':'transparent',color:on?GOLD:'#b8bcc4'}};
+    const navItems=[navBtn('Dashboard','◈',['dash'],()=>this.go('dash')),navBtn('Trades','⇄',['trades','trade','newtrade'],()=>this.go('trades'),openTrades.length),navBtn('Binder','▤',['binder'],()=>this.go('binder')),navBtn('Notifications','◎',['notifs'],()=>this.go('notifs'),unread||0)];
+    const mobileTabs=[['Home','◈','dash'],['Trades','⇄','trades'],['Binder','▤','binder'],['Friends','☺','roster'],['Profile','◉','profile']].map(([label,icon,scr])=>({label,icon,go:()=>this.go(scr),color:(sc===scr||(scr==='trades'&&['trade','newtrade'].includes(sc))||(scr==='roster'&&sc==='friend'))?GOLD:'#8b919c'}));
+    const roster=USERS.map(u=>({...u,ini:ini(u.u),online:!!u.on,matches:matchCount(u.u)||0,coll:u.coll.toLocaleString('de-DE'),bg:sc==='friend'&&s.friendU===u.u?'#151821':'transparent',open:()=>this.go('friend',{friendU:u.u})}));
+    const notifMap=n=>({...n,bg:n.unread?'rgba(212,168,67,.05)':'transparent',open:()=>{this.setState(st=>({notifs:st.notifs.map(x=>x.id===n.id?{...x,unread:false}:x)}));this.go(n.go.screen,n.go)}});
+    // partners
+    const partners=[...new Set([...GET.map(x=>x[1]),...GIVE.map(x=>x[1])])].map(u=>{const g=GET.filter(([n,f,o])=>f===u||o.includes(u)),v=GIVE.filter(([,to])=>to===u);const gE=g.reduce((a,[n])=>a+(this.card(n).eur||0),0),vE=v.reduce((a,[n])=>a+(this.card(n).eur||0),0);const d=gE-vE;const usr=USERS.find(x=>x.u===u)||{};return{u,ini:ini(u),get:g.length,give:v.length,active:usr.active,bal:(d>=0?'+':'−')+eur(Math.abs(d)),balColor:d>0?GREEN:GOLD,score:g.length+v.length,propose:()=>this.startTrade(u)}}).sort((a,b)=>b.score-a.score);
+    const stat=(label,value,sub,color,go,i)=>({label,value,sub,color,go,delay:(i*60)+'ms'});
+    const collEurN=s.collection.reduce((a,c)=>a+(this.card(c.name).eur||0)*c.qty,0),wishEurN=s.wishlist.reduce((a,c)=>a+(this.card(c.name).eur||0)*c.qty,0);
+    const stats=[stat('Cards you can get',GET.length,`from ${new Set(GET.map(x=>x[1])).size} friends · ${eur(getTotal)}`,GREEN,()=>this.go('trades',{tradeTab:'matches'}),0),stat('Cards friends want',GIVE.length,`worth ${eur(giveTotal)} to give`,'#e8e6df',()=>this.go('trades',{tradeTab:'matches'}),1),stat('Open trades',openTrades.length,`${s.trades.filter(t=>t.status==='awaiting_you').length} waiting on you`,GOLD,()=>this.go('trades',{tradeTab:'proposals'}),2),stat('Binder value',eur(collEurN),`${s.collection.reduce((a,c)=>a+c.qty,0)} cards · Cardmarket trend`,'#e8e6df',()=>this.go('binder'),3)];
+    const tradeCard=t=>{const v=this.tradeVals(t);const st=ST[t.status];return{...t,ini:ini(t.partner),stLabel:st[0],stBg:st[1],stColor:st[2],...v,getEur:eur(v.g),giveEur:eur(v.v),summary:`Get ${t.get.map(([n,q])=>(q>1?q+'× ':'')+n).join(', ')||'—'} · Give ${t.give.map(([n,q])=>(q>1?q+'× ':'')+n).join(', ')||'—'}`,open:()=>this.go('trade',{tradeId:t.id})}};
+    const matchRow=([name,from,others=[]],dir)=>{const c=this.card(name);return{name,from,more:others.length||0,eur:this.price(name),dots:this.dots(c.ci),...this.hov(name),openFrom:()=>this.go('friend',{friendU:from})}};
+    const tab=(label,key,count)=>({label,count,go:()=>this.setState({tradeTab:key}),bg:s.tradeTab===key?GOLD:'transparent',color:s.tradeTab===key?INK:'#b8bcc4'});
+    // trade detail
+    let td={};if(sc==='trade'){const t=s.trades.find(x=>x.id===s.tradeId);if(t){const v=this.tradeVals(t);const st=ST[t.status];const map=([n,q])=>{const c=this.card(n);return{name:n,qty:q,img:c.small,eur:eur((t.frozen?.[n]??c.eur??0)*q),...this.hov(n)}};
+      td={...t,ini:ini(t.partner),stLabel:st[0],stBg:st[1],stColor:st[2],get:t.get.map(map),give:t.give.map(map),getEur:eur(v.g),giveEur:eur(v.v),balLabel:Math.abs(v.d)<2?'balanced':(v.d>0?`you gain ${eur(v.d)}`:`you give ${eur(-v.d)} more`),balColor:v.balColor,getPct:(v.g+v.v?Math.round(v.g/(v.g+v.v)*100):50)+'%',priceNote:t.frozen?'frozen at completion':'live, updated nightly',reserved:t.status==='accepted',
+        comments:t.comments.map(m=>{const me=m.who==='you';return{...m,ini:me?ini(s.meName):ini(m.who),dir:me?'row-reverse':'row',bg:me?GOLD:'#0e1015',color:me?INK:'#e8e6df',align:me?'right':'left',who:me?'you':m.who}}),noComments:!t.comments.length,
+        canRespond:t.status==='awaiting_you',canWithdraw:t.status==='awaiting_them',canComplete:t.status==='accepted',isClosed:['completed','declined','withdrawn'].includes(t.status),closedNote:t.status==='completed'?'Trade completed. Both binders were updated and prices frozen.':'This trade is closed. Start a new one from the matches list.',
+        accept:()=>this.setStatus(t.id,'accepted',`Trade with ${t.partner} accepted — cards reserved`),decline:()=>this.setStatus(t.id,t.status==='awaiting_them'?'withdrawn':'declined',t.status==='awaiting_them'?'Proposal withdrawn':'Trade declined'),complete:()=>this.setStatus(t.id,'completed',`Trade ${t.id} completed`),counter:()=>this.startTrade(t.partner)}}}
+    // friend
+    let fr={};if(sc==='friend'){const u=USERS.find(x=>x.u===s.friendU)||{u:s.friendU,coll:0,wish:0,active:'—'};const g=GET.filter(([n,f,o])=>f===u.u||o.includes(u.u)).map(([n])=>({name:n,eur:this.price(n),dots:this.dots(this.card(n).ci),...this.hov(n)})),v=GIVE.filter(([,to])=>to===u.u).map(([n])=>({name:n,eur:this.price(n),dots:this.dots(this.card(n).ci),...this.hov(n)}));
+      fr={...u,ini:ini(u.u),coll:u.coll.toLocaleString('de-DE'),get:g,give:v,getN:g.length,giveN:v.length,getEmpty:!g.length,giveEmpty:!v.length,propose:()=>this.startTrade(u.u)}}
+    // binder rows
+    const key=s.binderTab==='coll'?'collection':'wishlist';const q=s.binderQ.toLowerCase();
+    const binderRows=s[key].map((c,i)=>({i,c})).filter(({c})=>!q||c.name.toLowerCase().includes(q)).map(({c,i})=>{const cd=this.card(c.name);let tag=null,tagColor,tagBorder;if(key==='collection'){const w=GIVE.filter(([n])=>n===c.name).map(x=>x[1]);if(w.length){tag=`${w.join(', ')} want${w.length>1?'':'s'} this`;tagColor=GOLD;tagBorder='rgba(212,168,67,.4)'}}else{const h=GET.find(([n])=>n===c.name);if(h){const n=1+h[2].length;tag=`${n} friend${n>1?'s have':' has'} it`;tagColor=GREEN;tagBorder='rgba(79,191,122,.4)'}}
+      return{...c,set:cd.set||'—',img:cd.small,noImg:!cd.small,eur:eur((cd.eur||0)*c.qty),dots:this.dots(cd.ci),tag,tagColor,tagBorder,reserved:reservedNames.has(c.name),...this.hov(c.name),...this.rowOps(key,i)}});
+    // draft
+    const d=s.draft;const dGetOpts=GET.filter(([n,f,o])=>f===d.partner||o.includes(d.partner)).map(([n])=>({name:n,eur:this.price(n),on:!!d.get[n],bg:d.get[n]?'rgba(212,168,67,.05)':'transparent',toggle:()=>this.setState(st=>({draft:{...st.draft,get:{...st.draft.get,[n]:!st.draft.get[n]}}})),...this.hov(n)}));
+    const wantedBy=new Set(GIVE.filter(([,to])=>to===d.partner).map(x=>x[0]));
+    const dGiveOpts=[...s.collection].filter(c=>!reservedNames.has(c.name)).sort((a,b)=>(wantedBy.has(b.name)?1:0)-(wantedBy.has(a.name)?1:0)).slice(0,10).map(c=>({name:c.name,eur:this.price(c.name),wanted:wantedBy.has(c.name),on:!!d.give[c.name],bg:d.give[c.name]?'rgba(212,168,67,.05)':'transparent',toggle:()=>this.setState(st=>({draft:{...st.draft,give:{...st.draft.give,[c.name]:!st.draft.give[c.name]}}})),...this.hov(c.name)}));
+    const dG=Object.keys(d.get).filter(n=>d.get[n]).reduce((a,n)=>a+(this.card(n).eur||0),0),dV=Object.keys(d.give).filter(n=>d.give[n]).reduce((a,n)=>a+(this.card(n).eur||0),0),dd=dG-dV;
+    const partnerChips=partners.map(p=>({...p,n:p.score+' matches',pick:()=>this.startTrade(p.u),border:d.partner===p.u?GOLD:'#2c3140',bg:d.partner===p.u?'rgba(212,168,67,.12)':'#151821',color:d.partner===p.u?GOLD:'#e8e6df'}));
+    // add drawer
+    const pick=s.addPick?this.card(s.addPick):null;
+    const settingsDef=[['match','New match alerts','When a friend adds a card on your wishlist'],['proposal','Trade proposals','When someone proposes, accepts or declines'],['comment','Comments','Replies on your open trades'],['digest','Weekly digest','Sunday summary of new matches and price moves'],['pause','Pause my binder','Hide my cards from matching while I\'m away']];
+    const settings=settingsDef.map(([k,label,sub])=>({label,sub,on:s.settings[k],bg:s.settings[k]?GOLD:'#2c3140',knob:s.settings[k]?'21px':'3px',toggle:()=>this.setState(st=>({settings:{...st.settings,[k]:!st.settings[k]}}))}));
+    const h=s.hover;const hc=h?this.card(h.name):null;
+    const wishAvail=GET.slice(0,8).map(([n,f])=>{const c=this.card(n);return{name:n,from:f,eur:this.price(n),img:c.img,noImg:!c.img,...this.hov(n),go:()=>this.go('friend',{friendU:f})}});
+    return{
+      motion:this.props.reduceMotion?'off':'on',
+      maxW:this.props.mobile?'390px':'none',minH:this.props.mobile?'0':'100vh',frameH:this.props.mobile?'820px':'100vh',frameR:this.props.mobile?'36px':'0',frameM:this.props.mobile?'24px auto':'0',frameB:this.props.mobile?'8px solid #1a1d26':'0',
+      isLogin:sc==='login',isApp,isMobile:mobile,notMobile:!mobile,mainPadB:mobile?'80px':'0',
+      loginUser:s.loginUser,loginPass:s.loginPass,setLoginUser:e=>this.setState({loginUser:e.target.value}),setLoginPass:e=>this.setState({loginPass:e.target.value}),loginKey:e=>{if(e.key==='Enter')this.login()},
+      login:()=>{this.go('dash');this.toast(`Welcome back, ${s.meName}. 4 new matches since yesterday.`)},
+      logout:()=>this.go('login'),
+      meName:s.meName,meInitials:ini(s.meName),meCity:s.meCity,meLang:s.meLang,setMeName:e=>this.setState({meName:e.target.value}),setMeCity:e=>this.setState({meCity:e.target.value}),setMeLang:e=>this.setState({meLang:e.target.value}),saveProfile:()=>this.toast('Profile saved',GREEN),priceUpdated:'today 04:10',settings,
+      globalQ:s.globalQ,setGlobalQ:e=>this.setState({globalQ:e.target.value}),
+      notifOpen:s.notifOpen,toggleNotif:()=>this.setState(st=>({notifOpen:!st.notifOpen})),hasUnread:unread>0,notifsTop:s.notifs.slice(0,4).map(notifMap),notifsAll:s.notifs.map(notifMap),markAllRead:()=>this.setState(st=>({notifs:st.notifs.map(n=>({...n,unread:false}))})),
+      goDash:()=>this.go('dash'),goTrades:()=>this.go('trades'),goProposals:()=>this.go('trades',{tradeTab:'proposals'}),goBinderWish:()=>this.go('binder',{binderTab:'wish'}),goProfile:()=>this.go('profile'),goNotifs:()=>this.go('notifs'),
+      navItems,mobileTabs,roster,rosterCount:USERS.length,
+      isDash:isSel('dash'),isTrades:isSel('trades'),isNewTrade:isSel('newtrade'),isTradeDetail:isSel('trade')&&!!td.id,isBinder:isSel('binder'),isFriend:isSel('friend'),isNotifs:isSel('notifs'),isProfile:isSel('profile'),isRoster:isSel('roster'),
+      todayLabel:'MONDAY, 8 SEPTEMBER 2026',stats,partners:partners.slice(0,5),openTrades:openTrades.map(tradeCard),wishAvail,
+      matchTime:'2 min ago',startTrade:()=>this.startTrade(),tradeTabs:[tab('Matches','matches',GET.length+GIVE.length),tab('Proposals','proposals',openTrades.length),tab('History','history',null)],
+      tradeTabMatches:s.tradeTab==='matches',tradeTabProposals:s.tradeTab==='proposals',tradeTabHistory:s.tradeTab==='history',
+      matchesGet:GET.map(m=>matchRow(m,'get')),matchesGive:GIVE.map(([n,to])=>matchRow([n,to,[]],'give')),getTotal:eur(getTotal),giveTotal:eur(giveTotal),
+      proposalList:openTrades.map(tradeCard),historyList:s.trades.filter(t=>['completed','declined','withdrawn'].includes(t.status)).map(tradeCard),
+      td,commentText:s.commentText,setCommentText:e=>this.setState({commentText:e.target.value}),commentKey:e=>{if(e.key==='Enter')this.sendComment()},sendComment:()=>this.sendComment(),
+      partnerChips,draftPartnerUp:d.partner.toUpperCase(),draftGetOpts:dGetOpts,draftGetEmpty:!dGetOpts.length,draftGiveOpts:dGiveOpts,draftGetEur:eur(dG),draftGiveEur:eur(dV),draftBalLabel:Math.abs(dd)<2?'balanced':(dd>0?`you gain ${eur(dd)}`:`you give ${eur(-dd)} more`),draftBalColor:Math.abs(dd)<2?'#b8bcc4':dd>0?GREEN:GOLD,draftGetPct:(dG+dV?Math.round(dG/(dG+dV)*100):50)+'%',draftNote:d.note,setDraftNote:e=>this.setState(st=>({draft:{...st.draft,note:e.target.value}})),sendDraft:()=>this.sendDraft(),draftDisabled:!(dG||dV||Object.values(d.get).some(Boolean)||Object.values(d.give).some(Boolean)),draftOpacity:(Object.values(d.get).some(Boolean)||Object.values(d.give).some(Boolean))?1:.5,
+      fr,
+      collEur:eur(collEurN),wishEur:eur(wishEurN),collCount:s.collection.reduce((a,c)=>a+c.qty,0),wishCount:s.wishlist.length,tabColl:()=>this.setState({binderTab:'coll'}),tabWish:()=>this.setState({binderTab:'wish'}),collTabBg:s.binderTab==='coll'?GOLD:'transparent',collTabColor:s.binderTab==='coll'?INK:'#b8bcc4',wishTabBg:s.binderTab==='wish'?GOLD:'transparent',wishTabColor:s.binderTab==='wish'?INK:'#b8bcc4',
+      binderQ:s.binderQ,setBinderQ:e=>this.setState({binderQ:e.target.value}),viewList:()=>this.setState({binderView:'list'}),viewGrid:()=>this.setState({binderView:'grid'}),isListView:s.binderView==='list',isGridView:s.binderView==='grid',listBg:s.binderView==='list'?'#2c3140':'transparent',listColor:s.binderView==='list'?GOLD:'#8b919c',gridBg:s.binderView==='grid'?'#2c3140':'transparent',gridColor:s.binderView==='grid'?GOLD:'#8b919c',binderRows,binderEmpty:!binderRows.length,
+      openAdd:()=>this.setState({addOpen:true,importOpen:false,addTarget:s.binderTab==='wish'?'wish':'coll'}),openImport:()=>this.setState({importOpen:true,addOpen:false,addTarget:s.binderTab==='wish'?'wish':'coll'}),closeDrawers:()=>this.setState({addOpen:false,importOpen:false,suggestions:[]}),addOpen:s.addOpen,importOpen:s.importOpen,
+      addToColl:()=>this.setState({addTarget:'coll'}),addToWish:()=>this.setState({addTarget:'wish'}),addCollBg:s.addTarget==='coll'?GOLD:'transparent',addCollColor:s.addTarget==='coll'?INK:'#b8bcc4',addWishBg:s.addTarget==='wish'?GOLD:'transparent',addWishColor:s.addTarget==='wish'?INK:'#b8bcc4',addTargetLabel:s.addTarget==='coll'?'collection':'wishlist',
+      addQ:s.addQ,setAddQ:e=>this.setAddQ(e.target.value),addKey:e=>this.addKey(e),addLoading:s.addLoading,hasSuggestions:s.suggestions.length>0,suggestions:s.suggestions.map((name,i)=>({name,bg:i===s.sugIdx?'#1a1e29':'transparent',color:i===s.sugIdx?GOLD:'#e8e6df',pick:()=>this.pickSuggestion(name),hover:()=>this.setState({sugIdx:i})})),
+      addImg:pick?.img,addNoImg:!pick?.img,addName:pick?pick.name:'',addMeta:pick?[pick.type,pick.setName].filter(Boolean).join(' · ')||(pick.loading?'Loading from Scryfall…':''):'',addEur:pick&&pick.eur!=null?eur(pick.eur):'',addQty:s.addQty,addInc:()=>this.setState({addQty:s.addQty+1}),addDec:()=>this.setState({addQty:Math.max(1,s.addQty-1)}),addLang:s.addLang,setAddLang:e=>this.setState({addLang:e.target.value}),addCommit:()=>this.addCommit(),addDisabled:!s.addPick,addOpacity:s.addPick?1:.5,hasRecent:s.recent.length>0,recentAdds:s.recent,
+      importText:s.importText,setImportText:e=>this.setState({importText:e.target.value}),parseImport:()=>this.parseImport(),hasImportPreview:!!s.importRows,importRows:s.importRows||[],impNew:(s.importRows||[]).filter(r=>r.kind==='new').length,impUpd:(s.importRows||[]).filter(r=>r.kind==='upd').length,impUnk:(s.importRows||[]).filter(r=>r.kind==='unk').length,impApply:(s.importRows||[]).filter(r=>r.kind!=='unk').length,commitImport:()=>this.commitImport(),
+      toasts:s.toasts,
+      hoverOn:!!h,hoverX:h?h.x:0,hoverY:h?h.y:0,hoverArrowL:h&&h.right?'-6px':'auto',hoverArrowR:h&&!h.right?'-6px':'auto',hoverName:h?h.name:'',hoverImg:hc?.img,hoverNoImg:!hc?.img,hoverLoadingText:hc&&this.cards[h?.name]?.missing?'Not found on Scryfall':(this.live()?'Loading from Scryfall…':'Image preview (offline)'),hoverType:hc?.type||'',hoverSet:hc?(hc.setName||hc.set||''):'',hoverEur:hc&&hc.eur!=null?eur(hc.eur):''
+    }
+  }
+}
+</script>
+</body>
+</html>

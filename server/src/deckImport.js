@@ -1,6 +1,4 @@
-function matchKey(name) {
-  return String(name || "").trim().split("//")[0].trim().toLowerCase();
-}
+import { matchKey } from "./matchKey.js";
 
 function mergeCardRows(rows) {
   const byKey = new Map();

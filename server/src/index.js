@@ -5,6 +5,9 @@ import { pool } from "./db.js";
 import { computeMatches } from "./matching.js";
 import { hashPassword, verifyPassword, signToken, requireAuth } from "./auth.js";
 import { importDeckFromUrl } from "./deckImport.js";
+import { matchKey } from "./matchKey.js";
+import { warmCache } from "./scryfall.js";
+import { scryfallRouter } from "./routes/scryfall.js";
 
 dotenv.config();
 
@@ -15,9 +18,7 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:5173")
 app.use(cors({ origin: ALLOWED_ORIGINS }));
 app.use(express.json({ limit: "5mb" }));
 
-function matchKey(name) {
-  return String(name || "").trim().split("//")[0].trim().toLowerCase();
-}
+app.use("/api", scryfallRouter);
 
 // --- Auth ---
 
@@ -248,7 +249,9 @@ app.put("/api/friends/:id/collection", requireAuth, async (req, res) => {
   }
   try {
     await replaceList("collection_cards", req.params.id, req.body.cards || []);
-    res.json(await getCards("collection_cards", req.params.id));
+    const cards = await getCards("collection_cards", req.params.id);
+    warmCache(cards.map((c) => c.card_name));
+    res.json(cards);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Could not save collection." });
@@ -261,7 +264,9 @@ app.put("/api/friends/:id/wishlist", requireAuth, async (req, res) => {
   }
   try {
     await replaceList("wishlist_cards", req.params.id, req.body.cards || []);
-    res.json(await getCards("wishlist_cards", req.params.id));
+    const cards = await getCards("wishlist_cards", req.params.id);
+    warmCache(cards.map((c) => c.card_name));
+    res.json(cards);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Could not save wishlist." });
