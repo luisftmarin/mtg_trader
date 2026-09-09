@@ -716,9 +716,9 @@ function MainApp({ identity, onSwitchIdentity }) {
           </div>
 
           {loadingFriends ? (
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>Loading…</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading…</div>
           ) : rosterFriends.length === 0 ? (
-            <div style={{ fontSize: 12, color: "var(--muted)", fontStyle: "italic" }}>No traders yet.</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>No traders yet.</div>
           ) : (
             rosterFriends.map((f) => {
               const isSelf = f.id === identity.id;
@@ -782,7 +782,7 @@ function MainApp({ identity, onSwitchIdentity }) {
             </div>
             {onTrades && friends.length >= 2 && (
               <label className="toolbar-label">
-                <Star size={13} color={priorityFriendName ? "var(--gold)" : "var(--muted)"} fill={priorityFriendName ? "var(--gold)" : "none"} />
+                <Star size={13} color={priorityFriendName ? "var(--gold)" : "var(--text-muted)"} fill={priorityFriendName ? "var(--gold)" : "none"} />
                 Priority
                 <select
                   className="field field--compact"
@@ -852,7 +852,7 @@ function MainApp({ identity, onSwitchIdentity }) {
               )}
 
               {matches.length === 0 ? (
-                <div style={{ color: "var(--muted)", fontSize: 13 }}>No matches across the current roster.</div>
+                <div style={{ color: "var(--text-muted)", fontSize: 13 }}>No matches across the current roster.</div>
               ) : (
                 <>
                   <div className="segmented" style={{ marginBottom: 18 }}>
@@ -1049,7 +1049,7 @@ function ChangePasswordModal({ onClose }) {
               type="password"
               autoComplete="new-password"
             />
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>At least 6 characters.</div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>At least 6 characters.</div>
             {error && <div className="warning-banner">{error}</div>}
             <Button type="submit" variant="primary" disabled={busy || !currentPassword || !newPassword || !confirm}>
               {busy ? "…" : "Update password"}
@@ -1200,7 +1200,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
     setCollection(rows);
   }
 
-  if (loading) return <div style={{ fontSize: 13, color: "var(--muted)" }}>Loading {friend.name}'s lists…</div>;
+  if (loading) return <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading {friend.name}'s lists…</div>;
 
   const listsEmpty = collection.length === 0 && wishlist.length === 0;
   const collectionOverlapKeys = overlapKeysBetween(collection, wishlist);
@@ -1229,7 +1229,7 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
               Reset {friend.name}'s password
             </Button>
           ) : resetDone ? (
-            <div style={{ fontSize: 12, color: "var(--parchment)" }}>Password reset. Let {friend.name} know their new one.</div>
+            <div style={{ fontSize: 12, color: "var(--text)" }}>Password reset. Let {friend.name} know their new one.</div>
           ) : (
             <form onSubmit={submitResetPassword} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
               <TextField
@@ -1251,13 +1251,13 @@ function FriendEditor({ friend, isAdminEditing, onClose, onSaved, onListsChange,
 
       {overlapCount > 0 && (
         <div className="notice">
-          <span style={{ fontFamily: "var(--mono)" }}>{overlapCount}</span> card{overlapCount !== 1 ? "s" : ""} appear in both collection and wishlist — highlighted below (already owned but still listed as wanted).
+          <span style={{ fontFamily: "var(--font-mono)" }}>{overlapCount}</span> card{overlapCount !== 1 ? "s" : ""} appear in both collection and wishlist — highlighted below (already owned but still listed as wanted).
         </div>
       )}
 
       {listsEmpty && (
         <div className="empty" style={{ marginBottom: 16 }}>
-          <div className="panel__title" style={{ marginBottom: 8, color: "var(--parchment)" }}>
+          <div className="panel__title" style={{ marginBottom: 8, color: "var(--text)" }}>
             {isAdminEditing ? `Getting started with ${friend.name}'s lists` : "Getting started with your binder"}
           </div>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
@@ -1332,7 +1332,7 @@ function EditableSection({ title, rows, overlapKeys, onUpdateRow, onRemoveRow, o
 
       <div className="filter-bar">
         <div className="filter-bar__inner">
-          <Search size={12} color="var(--muted)" />
+          <Search size={12} color="var(--text-muted)" />
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -1447,7 +1447,7 @@ function ImportSection({ platform, onPlatformChange, onReplaceFile, showDeckLink
       </div>
 
       <div style={{ marginBottom: showDeckLinkImport ? 12 : 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
           <Upload size={12} color="var(--gold)" />
           Replace from CSV
         </div>
@@ -1478,7 +1478,7 @@ function ImportSection({ platform, onPlatformChange, onReplaceFile, showDeckLink
           />
           <SaveChangesButton onSave={onSave} saving={saving} />
         </div>
-        <div style={{ marginTop: 6, fontSize: 10, color: "var(--muted)", lineHeight: 1.4 }}>
+        <div style={{ marginTop: 6, fontSize: 10, color: "var(--text-muted)", lineHeight: 1.4 }}>
           Save changes overwrites the current list.
         </div>
       </div>
