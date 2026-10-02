@@ -142,8 +142,8 @@ app.get("/api/friends", async (req, res) => {
         COALESCE(c.cnt, 0)::int AS collection_count,
         COALESCE(w.cnt, 0)::int AS wishlist_count
       FROM friends f
-      LEFT JOIN (SELECT friend_id, COUNT(*) cnt FROM collection_cards GROUP BY friend_id) c ON c.friend_id = f.id
-      LEFT JOIN (SELECT friend_id, COUNT(*) cnt FROM wishlist_cards GROUP BY friend_id) w ON w.friend_id = f.id
+      LEFT JOIN (SELECT friend_id, COALESCE(SUM(qty), 0)::int AS cnt FROM collection_cards GROUP BY friend_id) c ON c.friend_id = f.id
+      LEFT JOIN (SELECT friend_id, COALESCE(SUM(qty), 0)::int AS cnt FROM wishlist_cards GROUP BY friend_id) w ON w.friend_id = f.id
       ORDER BY f.name ASC
     `);
     res.json(rows);

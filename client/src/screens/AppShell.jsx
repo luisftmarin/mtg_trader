@@ -29,6 +29,12 @@ export function AppShell() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [globalQ, setGlobalQ] = useState("");
   const [drawer, setDrawer] = useState(null);
+  const [binderTick, setBinderTick] = useState(0);
+
+  function afterBinderWrite() {
+    setBinderTick((n) => n + 1);
+    refreshAll();
+  }
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 760px)");
@@ -98,7 +104,15 @@ export function AppShell() {
           <nav className="be-sidebar">
             <div className="be-nav">
               {NAV.map((item) => (
-                <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `be-nav__item${isActive ? " is-active" : ""}`}>
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) => {
+                    const on = item.to === "/binder" ? location.pathname.startsWith("/binder") : isActive;
+                    return `be-nav__item${on ? " is-active" : ""}`;
+                  }}
+                >
                   <span className="be-nav__icon">{item.icon}</span>
                   <span style={{ flex: 1 }}>{item.label}</span>
                 </NavLink>
@@ -128,7 +142,15 @@ export function AppShell() {
           </nav>
         )}
         <main className="be-main">
-          <Outlet context={{ openAdd: (tab) => setDrawer({ kind: "add", tab }), openImport: (tab) => setDrawer({ kind: "import", tab }), refreshAll, narrow }} />
+          <Outlet
+            context={{
+              openAdd: (tab, friendId) => setDrawer({ kind: "add", tab, friendId: friendId || identity.id }),
+              openImport: (tab, friendId) => setDrawer({ kind: "import", tab, friendId: friendId || identity.id }),
+              refreshAll,
+              binderTick,
+              narrow,
+            }}
+          />
         </main>
       </div>
 
@@ -145,18 +167,18 @@ export function AppShell() {
 
       {drawer?.kind === "add" && (
         <AddCardsDrawer
-          friendId={identity.id}
+          friendId={drawer.friendId || identity.id}
           target={drawer.tab}
           onClose={() => setDrawer(null)}
-          onAdded={() => refreshAll()}
+          onAdded={() => afterBinderWrite()}
         />
       )}
       {drawer?.kind === "import" && (
         <ImportDrawer
-          friendId={identity.id}
+          friendId={drawer.friendId || identity.id}
           target={drawer.tab}
           onClose={() => setDrawer(null)}
-          onApplied={() => refreshAll()}
+          onApplied={() => afterBinderWrite()}
         />
       )}
     </div>

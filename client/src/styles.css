@@ -1128,6 +1128,11 @@ select.field {
   padding: 16px;
 }
 
+.modal-backdrop--top {
+  align-items: flex-start;
+  padding-top: 72px;
+}
+
 .modal {
   width: 380px;
   max-width: 100%;
@@ -1156,6 +1161,18 @@ select.field {
   color: var(--text-muted);
   margin: 0 0 20px;
   line-height: 1.5;
+}
+
+.modal h2 {
+  font: 600 18px var(--font-display);
+  margin: 0 0 10px;
+}
+
+.modal__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .pip {
@@ -1576,7 +1593,7 @@ select.field {
 .be-list { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .be-list__head, .be-list__row {
   display: grid;
-  grid-template-columns: 30px minmax(0,1fr) 48px 50px 92px 80px 32px;
+  grid-template-columns: 30px minmax(0,1fr) 92px 32px;
   gap: 10px; align-items: center; padding: 8px 16px;
 }
 .be-list__head {
@@ -1719,10 +1736,12 @@ select.field {
 .be-suggest label, .be-add-preview label, .be-archidekt label {
   display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;
 }
+.be-select,
 .be-suggest input, .be-archidekt input {
   width: 100%; box-sizing: border-box; background: var(--bg); border: 1px solid var(--border-strong);
   border-radius: 8px; color: var(--text); padding: 11px 12px; font-size: 15px;
 }
+.be-select { appearance: none; cursor: pointer; }
 .be-spin {
   position: absolute; right: 12px; top: 34px; width: 14px; height: 14px;
   border: 2px solid var(--border-strong); border-top-color: var(--gold); border-radius: 50%;
@@ -1774,5 +1793,5 @@ select.field {
 
 @media (max-width: 760px) {
   .be-list { overflow-x: auto; }
-  .be-list__head, .be-list__row { min-width: 640px; }
+  .be-list__head, .be-list__row { min-width: 420px; }
 }

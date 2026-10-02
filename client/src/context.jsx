@@ -1,6 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "./api.js";
 
+function adminFromToken(token) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return !!payload.isAdmin;
+  } catch {
+    return false;
+  }
+}
+
 export const IDENTITY_KEY = "mtg-trade-ledger:identity";
 export const TOKEN_KEY = "mtg-trade-ledger:token";
 
@@ -12,7 +21,10 @@ export function AuthProvider({ children }) {
     try {
       const raw = window.localStorage.getItem(IDENTITY_KEY);
       const token = window.localStorage.getItem(TOKEN_KEY);
-      return raw && token ? JSON.parse(raw) : null;
+      if (!raw || !token) return null;
+      const friend = JSON.parse(raw);
+      friend.isAdmin = !!(friend.isAdmin || adminFromToken(token));
+      return friend;
     } catch {
       return null;
     }

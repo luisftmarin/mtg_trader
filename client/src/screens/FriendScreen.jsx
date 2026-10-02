@@ -44,9 +44,20 @@ export function FriendScreen() {
             {friend.collection_count} cards · {friend.wishlist_count} wishes
           </div>
         </div>
-        <button type="button" className="be-btn be-btn--gold" onClick={() => navigate("/trades/new")}>
-          Propose trade
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {(identity.isAdmin || friend.id === identity.id) && (
+            <button
+              type="button"
+              className="be-btn be-btn--outline"
+              onClick={() => navigate(friend.id === identity.id ? "/binder" : `/binder/${friend.id}`)}
+            >
+              Edit binder
+            </button>
+          )}
+          <button type="button" className="be-btn be-btn--gold" onClick={() => navigate("/trades/new")}>
+            Propose trade
+          </button>
+        </div>
       </div>
       <div className="be-friend-cols">
         <section className="be-panel">

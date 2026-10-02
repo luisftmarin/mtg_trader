@@ -19,7 +19,7 @@ export function mountImportRoutes(app) {
       return res.status(403).json({ error: "You can only import into your own binder." });
     }
     try {
-      const parsed = parseImportLines(req.body.list);
+      const parsed = parseImportLines(req.body.list, req.body.format);
       const current = await getCards(table, friendId);
       const resolved = await resolveNames(parsed.map((r) => r.name));
       const rows = tagImportRows(parsed, current, resolved);
@@ -29,12 +29,14 @@ export function mountImportRoutes(app) {
         summary: {
           new: rows.filter((r) => r.kind === "new").length,
           updated: rows.filter((r) => r.kind === "upd").length,
+          kept: rows.filter((r) => r.kind === "keep").length,
+          removed: rows.filter((r) => r.kind === "del").length,
           unknown: rows.filter((r) => r.kind === "unk").length,
         },
       });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ error: "Could not preview import." });
+      res.status(400).json({ error: err.message || "Could not preview import." });
     }
   });
 
@@ -51,7 +53,7 @@ export function mountImportRoutes(app) {
       const defaultLang = langRow.rows[0]?.default_lang || "EN";
       let rows = Array.isArray(req.body.rows) ? req.body.rows : null;
       if (!rows) {
-        const parsed = parseImportLines(req.body.list);
+        const parsed = parseImportLines(req.body.list, req.body.format);
         const resolved = await resolveNames(parsed.map((r) => r.name));
         rows = tagImportRows(parsed, current, resolved);
       }

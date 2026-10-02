@@ -38,8 +38,35 @@ const ARCHIDEKT_HEADERS = {
   "User-Agent": "MTG-Trader/1.0 (deck import)",
 };
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryAfterMs(res, attempt) {
+  const header = Number(res.headers.get("retry-after"));
+  if (Number.isFinite(header) && header > 0) {
+    return Math.min(header * 1000, 15_000);
+  }
+  return Math.min(1000 * 2 ** attempt, 8000);
+}
+
+async function fetchArchidekt(url) {
+  const maxAttempts = 5;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(url, { headers: ARCHIDEKT_HEADERS });
+    if (res.status !== 429 && res.status !== 503) return res;
+    if (attempt === maxAttempts - 1) {
+      throw new Error(
+        "Archidekt is rate-limiting right now (429). Wait a minute and try Load again, or paste an exported list."
+      );
+    }
+    await sleep(retryAfterMs(res, attempt));
+  }
+  throw new Error("Could not load Archidekt.");
+}
+
 async function fetchArchidektDeck(id) {
-  const res = await fetch(`https://archidekt.com/api/decks/${id}/`, { headers: ARCHIDEKT_HEADERS });
+  const res = await fetchArchidekt(`https://archidekt.com/api/decks/${id}/`);
   if (res.status === 404) throw new Error("Archidekt deck not found — check the link is public.");
   if (!res.ok) throw new Error(`Could not load Archidekt deck (${res.status}).`);
   const data = await res.json();
@@ -59,10 +86,12 @@ function archidektDeckRows(cards) {
 
 async function fetchArchidektCollection(id) {
   const rows = [];
-  let nextUrl = `https://archidekt.com/api/collection/${id}/`;
+  let nextUrl = `https://archidekt.com/api/collection/${id}/?pageSize=200`;
+  let page = 0;
 
   while (nextUrl) {
-    const res = await fetch(nextUrl, { headers: ARCHIDEKT_HEADERS });
+    if (page > 0) await sleep(450);
+    const res = await fetchArchidekt(nextUrl);
     if (res.status === 404) throw new Error("Archidekt collection not found — check the link is public.");
     if (!res.ok) throw new Error(`Could not load Archidekt collection (${res.status}).`);
     const data = await res.json();
@@ -73,6 +102,7 @@ async function fetchArchidektCollection(id) {
       rows.push({ cardName, qty });
     }
     nextUrl = data.next || null;
+    page += 1;
   }
 
   if (!rows.length) throw new Error("That Archidekt collection has no cards.");
