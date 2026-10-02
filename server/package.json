@@ -7,7 +7,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "refresh-prices": "node src/jobs/refreshPrices.js",
-    "test": "node --test src/importList.test.js src/deckImport.test.js"
+    "test": "node --test src/importList.test.js src/deckImport.test.js src/trades.test.js"
   },
   "dependencies": {
     "express": "^4.19.2",

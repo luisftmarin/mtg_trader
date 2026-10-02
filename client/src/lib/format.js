@@ -40,3 +40,14 @@ export function initials(name) {
     .slice(0, 2)
     .toUpperCase();
 }
+
+export function timeAgo(value) {
+  const t = new Date(value).getTime();
+  if (!Number.isFinite(t)) return "";
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 45) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  const d = Math.round(s / 86400);
+  return d === 1 ? "yesterday" : `${d} days ago`;
+}

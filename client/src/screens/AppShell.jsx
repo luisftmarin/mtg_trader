@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { initials } from "../lib/format.js";
+import { initials, timeAgo } from "../lib/format.js";
 import { matchCountWithMe, useAuth, useData } from "../context.jsx";
+import { api } from "../api.js";
+import { notificationCopy } from "./TradeScreens.jsx";
 import { AddCardsDrawer } from "../components/AddCardsDrawer.jsx";
 import { ImportDrawer } from "../components/ImportDrawer.jsx";
 
@@ -22,7 +24,7 @@ const MOBILE = [
 
 export function AppShell() {
   const { identity } = useAuth();
-  const { friends, matches, loading, refreshAll } = useData();
+  const { friends, matches, loading, openTrades, notifications, refreshAll } = useData();
   const navigate = useNavigate();
   const location = useLocation();
   const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 760px)").matches || new URLSearchParams(window.location.search).get("mobile") === "1");
@@ -58,6 +60,7 @@ export function AppShell() {
       });
   }, [friends, globalQ, identity.id]);
 
+  const unread = notifications.filter((n) => !n.read_at);
   const meIni = initials(identity.name);
 
   return (
@@ -77,16 +80,39 @@ export function AppShell() {
         <div className="be-bell-wrap">
           <button type="button" className="be-bell" aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}>
             🔔
+            {unread.length > 0 && <span className="be-bell__dot" />}
           </button>
           {notifOpen && (
             <div className="be-popover">
               <div className="be-popover__head">
                 <div>Notifications</div>
-                <button type="button" className="be-text-gold">
+                <button
+                  type="button"
+                  className="be-text-gold"
+                  onClick={async () => {
+                    await api.markNotificationsRead();
+                    refreshAll();
+                  }}
+                >
                   Mark all read
                 </button>
               </div>
-              <div className="be-popover__empty">Trade alerts land here in the next update.</div>
+              {unread.concat(notifications.filter((n) => n.read_at)).slice(0, 4).map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  className={`be-popover__item${!n.read_at ? " is-unread" : ""}`}
+                  onClick={() => {
+                    setNotifOpen(false);
+                    if (n.payload?.tradeId) navigate(`/trades/${n.payload.tradeId}`);
+                    else navigate("/notifications");
+                  }}
+                >
+                  <span>{notificationCopy(n)}</span>
+                  <span className="be-mono-sub">{timeAgo(n.created_at)}</span>
+                </button>
+              ))}
+              {!notifications.length && <div className="be-popover__empty">No alerts yet.</div>}
               <button type="button" className="be-popover__foot" onClick={() => navigate("/notifications")}>
                 View all
               </button>
@@ -109,12 +135,23 @@ export function AppShell() {
                   to={item.to}
                   end={item.end}
                   className={({ isActive }) => {
-                    const on = item.to === "/binder" ? location.pathname.startsWith("/binder") : isActive;
+                    const on =
+                      item.to === "/binder"
+                        ? location.pathname.startsWith("/binder")
+                        : item.to === "/trades"
+                          ? location.pathname.startsWith("/trades")
+                          : isActive;
                     return `be-nav__item${on ? " is-active" : ""}`;
                   }}
                 >
                   <span className="be-nav__icon">{item.icon}</span>
                   <span style={{ flex: 1 }}>{item.label}</span>
+                  {item.to === "/trades" && openTrades.length > 0 && (
+                    <span className="be-match-pill">{openTrades.length}</span>
+                  )}
+                  {item.to === "/notifications" && unread.length > 0 && (
+                    <span className="be-match-pill">{unread.length}</span>
+                  )}
                 </NavLink>
               ))}
             </div>

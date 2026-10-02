@@ -62,6 +62,15 @@ export const api = {
   applyImport: (body) => request("/import/apply", { method: "POST", body: JSON.stringify(body) }),
   importDeckFromUrl: (url) => request("/import/deck", { method: "POST", body: JSON.stringify({ url }) }),
   getMatches: () => request("/matches"),
+  listTrades: (status) => request(`/trades${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  getTrade: (id) => request(`/trades/${id}`),
+  createTrade: (body) => request("/trades", { method: "POST", body: JSON.stringify(body) }),
+  actOnTrade: (id, action) => request(`/trades/${id}/${action}`, { method: "POST" }),
+  listComments: (id) => request(`/trades/${id}/comments`),
+  addComment: (id, body) => request(`/trades/${id}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
+  listNotifications: () => request("/notifications"),
+  markNotificationsRead: () => request("/notifications/read-all", { method: "POST" }),
+  markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: "POST" }),
   // Card metadata and EUR prices always come from the server cache; the
   // browser only ever loads images straight from Scryfall.
   getCards: (keys) => request(`/cards?keys=${encodeURIComponent(keys.join(","))}`),

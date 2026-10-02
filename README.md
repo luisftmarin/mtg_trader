@@ -28,14 +28,17 @@ postgresql://user:password@host:5432/dbname?sslmode=require
 ## 2. Run the migrations
 
 Paste the contents of `server/migrations/001_init.sql`, then
-`002_add_auth.sql`, `003_add_admin.sql`, then `004_card_meta.sql`, into:
+`002_add_auth.sql`, `003_add_admin.sql`, `004_card_meta.sql`, then
+`005_trades.sql` and `006_comments_notifications.sql`, into:
 - Supabase: the SQL Editor tab, click Run (once per file, in order).
 - Neon: their SQL console, or `psql "<your connection string>" -f server/migrations/001_init.sql`
   (repeat for each file, in order)
 
 This creates the core tables, adds password login, adds an admin flag, then
 adds the Scryfall card cache (images, types, EUR prices), a per-card
-language column, and the profile columns the redesign uses.
+language column, and the profile columns the redesign uses. `005` and `006`
+add trade proposals (accept / decline / complete), reserved cards, comments,
+and the notification bell.
 
 ## 3. Set up the server
 

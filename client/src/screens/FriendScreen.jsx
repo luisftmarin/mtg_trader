@@ -2,9 +2,11 @@ import React, { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CardName } from "../components/CardName.jsx";
 import { ManaDots } from "../components/QtyStepper.jsx";
-import { formatEur, initials, manaDots, matchKey } from "../lib/format.js";
+import { formatEur, initials, manaDots, matchKey, timeAgo } from "../lib/format.js";
 import { useCardData } from "../components/CardPreview.jsx";
 import { useAuth, useData } from "../context.jsx";
+import { api } from "../api.js";
+import { notificationCopy } from "./TradeScreens.jsx";
 
 export function FriendScreen() {
   const { id } = useParams();
@@ -54,7 +56,7 @@ export function FriendScreen() {
               Edit binder
             </button>
           )}
-          <button type="button" className="be-btn be-btn--gold" onClick={() => navigate("/trades/new")}>
+          <button type="button" className="be-btn be-btn--gold" onClick={() => navigate(`/trades/new?partner=${friend.id}`)}>
             Propose trade
           </button>
         </div>
@@ -127,16 +129,45 @@ export function RosterScreen() {
 }
 
 export function NotificationsScreen() {
+  const { notifications, refreshNotifications } = useData();
+  const navigate = useNavigate();
+  const unread = notifications.filter((n) => !n.read_at);
+
+  async function markAll() {
+    await api.markNotificationsRead();
+    refreshNotifications();
+  }
+
   return (
     <div className="be-page" style={{ maxWidth: 760 }}>
       <div className="be-page__head">
         <h1 style={{ flex: 1 }}>Notifications</h1>
-        <button type="button" className="be-btn be-btn--outline">
+        <button type="button" className="be-btn be-btn--outline" onClick={markAll} disabled={!unread.length}>
           Mark all read
         </button>
       </div>
       <section className="be-panel">
-        <div className="be-empty-copy">No notifications yet. Proposals and comments will appear here.</div>
+        {notifications.map((n) => (
+          <button
+            key={n.id}
+            type="button"
+            className={`be-notif-row${!n.read_at ? " is-unread" : ""}`}
+            onClick={() => {
+              if (n.payload?.tradeId) navigate(`/trades/${n.payload.tradeId}`);
+              else if (n.kind === "match") navigate("/trades");
+              if (!n.read_at) api.markNotificationRead(n.id).then(refreshNotifications);
+            }}
+          >
+            <div>
+              <div>{notificationCopy(n)}</div>
+              <div className="be-mono-sub">{timeAgo(n.created_at)}</div>
+            </div>
+            {!n.read_at && <span className="be-unread-dot" />}
+          </button>
+        ))}
+        {!notifications.length && (
+          <div className="be-empty-copy">No notifications yet. Proposals and comments will appear here.</div>
+        )}
       </section>
     </div>
   );

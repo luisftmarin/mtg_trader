@@ -16,6 +16,7 @@ function mapRows(list) {
     qty: c.qty,
     lang: c.lang || "EN",
     match_key: c.match_key,
+    reserved: c.reserved || 0,
   }));
 }
 
@@ -235,8 +236,12 @@ export function BinderScreen() {
             let tag = null;
             let tagClass = "";
             if (tab === "collection") {
+              const reserved = r.reserved || 0;
               const wanters = wantTags.get(r.cardName) || [];
-              if (wanters.length) {
+              if (reserved) {
+                tag = "🔒 reserved";
+                tagClass = "is-gold";
+              } else if (wanters.length) {
                 tag = `${wanters.slice(0, 2).join(", ")}${wanters.length > 2 ? ` +${wanters.length - 2}` : ""} want${wanters.length > 1 ? "" : "s"} this`;
                 tagClass = "is-gold";
               }

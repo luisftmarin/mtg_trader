@@ -143,3 +143,36 @@ export async function deleteCard(table, friendId, cardId) {
 export function canEditFriend(user, friendId) {
   return String(user.id) === String(friendId) || !!user.isAdmin;
 }
+
+// Used when completing a trade: move qty between binders. Negative qty
+// removes copies (and the row if it hits 0). Positive qty upserts.
+export async function applyQtyDelta(client, table, friendId, key, delta, cardName, lang) {
+  const n = parseInt(delta, 10);
+  if (!Number.isFinite(n) || n === 0) return;
+  const { rows } = await client.query(
+    `SELECT id, qty, card_name, lang FROM ${table} WHERE friend_id = $1 AND match_key = $2 FOR UPDATE`,
+    [friendId, key]
+  );
+  const row = rows[0];
+  if (n < 0) {
+    if (!row) return;
+    const next = row.qty + n;
+    if (next < 1) {
+      await client.query(`DELETE FROM ${table} WHERE id = $1`, [row.id]);
+    } else {
+      await client.query(`UPDATE ${table} SET qty = $1 WHERE id = $2`, [next, row.id]);
+    }
+    return;
+  }
+  if (row) {
+    await client.query(`UPDATE ${table} SET qty = qty + $1 WHERE id = $2`, [n, row.id]);
+    return;
+  }
+  if (table !== "collection_cards") return;
+  const name = String(cardName || key).trim();
+  if (!name) return;
+  await client.query(
+    `INSERT INTO ${table} (friend_id, card_name, match_key, qty, lang) VALUES ($1, $2, $3, $4, $5)`,
+    [friendId, name, key, n, normalizeLang(lang)]
+  );
+}

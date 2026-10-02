@@ -1791,6 +1791,80 @@ select.field {
 }
 .be-toast__undo { background: none; border: 0; color: var(--gold); font-weight: 700; font-size: 12px; cursor: pointer; margin-left: 6px; }
 
+.be-bell__dot {
+  position: absolute; top: 7px; right: 8px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 0 0 2px var(--surface);
+}
+.be-popover__item {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
+  border: 0; border-bottom: 1px solid var(--divider); background: transparent; color: var(--text);
+  padding: 10px 14px; cursor: pointer; font-size: 13px;
+}
+.be-popover__item.is-unread, .be-notif-row.is-unread { background: rgba(212,168,67,.08); }
+.be-notif-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;
+  text-align: left; border: 0; border-bottom: 1px solid var(--divider); background: transparent;
+  color: var(--text); padding: 12px 16px; cursor: pointer;
+}
+.be-unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); flex: none; }
+.be-status {
+  font: 700 10px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase;
+  border-radius: 6px; padding: 3px 7px;
+}
+.be-status.is-proposed { background: var(--status-proposed-bg); color: var(--status-proposed-fg); }
+.be-status.is-accepted { background: var(--status-accepted-bg); color: var(--status-accepted-fg); }
+.be-status.is-declined { background: var(--status-declined-bg); color: var(--status-declined-fg); }
+.be-status.is-closed { background: var(--status-closed-bg); color: var(--status-closed-fg); }
+.be-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 20px; }
+.be-chip {
+  display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text); border-radius: 999px; padding: 6px 12px 6px 6px;
+  cursor: pointer; font-size: 13px; font-weight: 600;
+}
+.be-chip.is-on { border-color: var(--gold); background: rgba(212,168,67,.12); }
+.be-chip__av {
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 10px var(--font-mono); background: var(--bg); color: var(--gold);
+}
+.be-check-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--divider);
+  cursor: pointer;
+}
+.be-check-row.is-on { background: rgba(212,168,67,.05); }
+.be-check-row .card-name { flex: 1; }
+.be-trade-foot {
+  position: sticky; bottom: 12px; margin-top: 18px; display: grid; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; padding: 14px;
+}
+.be-trade-foot__bal { font-weight: 700; }
+.be-trade-foot textarea {
+  width: 100%; box-sizing: border-box; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); padding: 8px 10px; font: 400 13px var(--font-ui);
+}
+.be-trade-card {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; color: var(--text); cursor: pointer; margin-bottom: 8px;
+}
+.be-trade-card:hover { border-color: var(--gold); transform: translateX(3px); }
+.be-trade-card__av {
+  width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+  font: 700 13px var(--font-mono); background: var(--bg); color: var(--gold); flex: none;
+}
+.be-trade-card__body { flex: 1; min-width: 0; }
+.be-trade-card__top { display: flex; align-items: center; gap: 8px; }
+.be-trade-card__bal { font: 500 12px var(--font-mono); color: var(--text-secondary); }
+.be-trade-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
+.be-comments { padding: 8px 0; }
+.be-comment { margin: 8px 16px; padding: 10px 12px; border-radius: 10px; background: #0e1015; max-width: 80%; }
+.be-comment.is-mine { margin-left: auto; background: var(--gold); color: var(--ink); }
+.be-comment.is-mine .be-mono-sub { color: rgba(20,16,8,.7); }
+.be-comment-form { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.be-comment-form input {
+  flex: 1; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 8px;
+  color: var(--text); padding: 10px 12px;
+}
+
 @media (max-width: 760px) {
   .be-list { overflow-x: auto; }
   .be-list__head, .be-list__row { min-width: 420px; }
