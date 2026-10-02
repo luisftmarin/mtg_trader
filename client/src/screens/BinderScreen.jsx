@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useOutletContext, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api.js";
 import { CardName } from "../components/CardName.jsx";
 import { LangSelect, ManaDots, QtyStepper } from "../components/QtyStepper.jsx";
@@ -21,6 +21,8 @@ function mapRows(list) {
 export function BinderScreen() {
   const { identity } = useAuth();
   const { matches, refreshAll } = useData();
+  const { friendId: friendIdParam } = useParams();
+  const navigate = useNavigate();
   const { openAdd, openImport } = useOutletContext();
   const toast = useToast();
   const [params, setParams] = useSearchParams();
@@ -29,19 +31,27 @@ export function BinderScreen() {
   const [filter, setFilter] = useState("");
   const [collection, setCollection] = useState([]);
   const [wishlist, setWishlist] = useState([]);
+  const [ownerName, setOwnerName] = useState(identity.name);
   const [loading, setLoading] = useState(true);
 
+  const ownerId = friendIdParam ? Number(friendIdParam) : identity.id;
+  const isAdminEditing = String(ownerId) !== String(identity.id);
+  const forbidden = isAdminEditing && !identity.isAdmin;
+
   async function load() {
-    const data = await api.getFriend(identity.id);
+    const data = await api.getFriend(ownerId);
+    setOwnerName(data.name);
     setCollection(mapRows(data.collection));
     setWishlist(mapRows(data.wishlist));
     setLoading(false);
   }
 
   useEffect(() => {
+    if (forbidden) return undefined;
+    setLoading(true);
     load().catch((err) => toast(err.message, "var(--red)"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identity.id]);
+  }, [ownerId, forbidden]);
 
   const rows = tab === "wishlist" ? wishlist : collection;
   const setRows = tab === "wishlist" ? setWishlist : setCollection;
@@ -61,22 +71,22 @@ export function BinderScreen() {
   const wantTags = useMemo(() => {
     const map = new Map();
     for (const m of matches || []) {
-      if (m.owner !== identity.name) continue;
+      if (m.owner !== ownerName) continue;
       const list = map.get(m.cardName) || [];
       if (!list.includes(m.seeker)) list.push(m.seeker);
       map.set(m.cardName, list);
     }
     return map;
-  }, [matches, identity.name]);
+  }, [matches, ownerName]);
 
   const haveTags = useMemo(() => {
     const map = new Map();
     for (const m of matches || []) {
-      if (m.seeker !== identity.name) continue;
+      if (m.seeker !== ownerName) continue;
       map.set(m.cardName, (map.get(m.cardName) || 0) + 1);
     }
     return map;
-  }, [matches, identity.name]);
+  }, [matches, ownerName]);
 
   function setTab(next) {
     params.set("tab", next);
@@ -87,9 +97,11 @@ export function BinderScreen() {
     setParams(params, { replace: true });
   }
 
+  if (forbidden) return <Navigate to="/binder" replace />;
+
   async function patch(row, body) {
     const fn = tab === "wishlist" ? api.patchWishlistCard : api.patchCollectionCard;
-    const next = mapRows(await fn(identity.id, row.id, body));
+    const next = mapRows(await fn(ownerId, row.id, body));
     setRows(next);
     refreshAll();
   }
@@ -100,9 +112,9 @@ export function BinderScreen() {
     const before = rows;
     setRows(rows.filter((r) => r.id !== row.id));
     try {
-      await fn(identity.id, row.id);
+      await fn(ownerId, row.id);
       toast(`Removed ${row.cardName}`, "var(--red)", async () => {
-        const restored = await add(identity.id, { cardName: row.cardName, qty: row.qty, lang: row.lang });
+        const restored = await add(ownerId, { cardName: row.cardName, qty: row.qty, lang: row.lang });
         setRows(mapRows(restored));
         refreshAll();
       });
@@ -115,17 +127,27 @@ export function BinderScreen() {
 
   return (
     <div className="be-page">
+      {isAdminEditing && (
+        <button type="button" className="be-back" onClick={() => navigate(`/friends/${ownerId}`)}>
+          ← {ownerName}
+        </button>
+      )}
+      {isAdminEditing && (
+        <div className="warning-banner" style={{ marginBottom: 16 }}>
+          You're editing this as an admin — {ownerName} didn't make this change themselves.
+        </div>
+      )}
       <div className="be-page__head">
         <div>
-          <h1>Your binder</h1>
+          <h1>{isAdminEditing ? `${ownerName}'s binder` : "Your binder"}</h1>
           <div className="be-mono-sub">
             collection {formatEur(collEur)} · wishlist {formatEur(wishEur)}
           </div>
         </div>
-        <button type="button" className="be-btn be-btn--outline" onClick={() => openImport(tab)}>
+        <button type="button" className="be-btn be-btn--outline" onClick={() => openImport(tab, ownerId)}>
           Import list
         </button>
-        <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab)}>
+        <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab, ownerId)}>
           + Add cards
         </button>
       </div>
@@ -221,7 +243,7 @@ export function BinderScreen() {
             <div className="be-empty">
               <div className="be-empty__title">Nothing here yet</div>
               <div>Add cards by name, or paste a list from Archidekt, Moxfield or a spreadsheet.</div>
-              <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab)}>
+              <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab, ownerId)}>
                 + Add cards
               </button>
             </div>
