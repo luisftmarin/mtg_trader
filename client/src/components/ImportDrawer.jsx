@@ -21,7 +21,7 @@ export function ImportDrawer({ friendId, target, onClose, onApplied }) {
     setBusy(false);
   }
 
-  async function loadArchidekt() {
+  async function loadFromUrl() {
     if (!url.trim()) return;
     setBusy(true);
     try {
@@ -93,10 +93,14 @@ export function ImportDrawer({ friendId, target, onClose, onApplied }) {
             {busy ? "Working…" : "Preview changes"}
           </button>
           <div className="be-archidekt">
-            <label>Archidekt URL</label>
+            <label>Archidekt or Moxfield URL</label>
             <div className="be-archidekt__row">
-              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="archidekt.com/decks/… or collection/v2/…" />
-              <button type="button" className="be-btn be-btn--outline" onClick={loadArchidekt} disabled={busy || !url.trim()}>
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="archidekt.com/decks/… or moxfield.com/decks/…"
+              />
+              <button type="button" className="be-btn be-btn--outline" onClick={loadFromUrl} disabled={busy || !url.trim()}>
                 Load
               </button>
             </div>

@@ -13,7 +13,7 @@ export function parseImportLines(text) {
     const line = raw.trim();
     if (!line) continue;
     if (line.startsWith("//") || line.startsWith("#")) continue;
-    if (/^sideboard\b/i.test(line) || /^maybeboard\b/i.test(line)) continue;
+    if (/^(sideboard|maybeboard|commander|commanders|deck|companion|companions)\s*:?\s*$/i.test(line)) continue;
     if (HEADER.test(line.replace(/"/g, ""))) continue;
     rows.push(parseImportLine(line));
   }

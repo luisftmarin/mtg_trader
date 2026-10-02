@@ -27,6 +27,17 @@ describe("parseImportLines", () => {
     assert.equal(rows.length, 1);
     assert.equal(rows[0].qty, 3);
   });
+
+  it("skips Moxfield section headers", () => {
+    const rows = parseImportLines("Commanders:\n1 Atraxa, Praetors' Voice\nDeck:\n1 Sol Ring\n");
+    assert.deepEqual(
+      rows.map((r) => [r.qty, r.name]),
+      [
+        [1, "Atraxa, Praetors' Voice"],
+        [1, "Sol Ring"],
+      ]
+    );
+  });
 });
 
 describe("tagImportRows", () => {
