@@ -48,6 +48,18 @@ export const api = {
     request(`/friends/${id}/collection`, { method: "PUT", body: JSON.stringify({ cards }) }),
   replaceWishlist: (id, cards) =>
     request(`/friends/${id}/wishlist`, { method: "PUT", body: JSON.stringify({ cards }) }),
+  addCollectionCard: (id, card) =>
+    request(`/friends/${id}/collection`, { method: "POST", body: JSON.stringify(card) }),
+  addWishlistCard: (id, card) =>
+    request(`/friends/${id}/wishlist`, { method: "POST", body: JSON.stringify(card) }),
+  patchCollectionCard: (id, cardId, body) =>
+    request(`/friends/${id}/collection/${cardId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  patchWishlistCard: (id, cardId, body) =>
+    request(`/friends/${id}/wishlist/${cardId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteCollectionCard: (id, cardId) => request(`/friends/${id}/collection/${cardId}`, { method: "DELETE" }),
+  deleteWishlistCard: (id, cardId) => request(`/friends/${id}/wishlist/${cardId}`, { method: "DELETE" }),
+  previewImport: (body) => request("/import/preview", { method: "POST", body: JSON.stringify(body) }),
+  applyImport: (body) => request("/import/apply", { method: "POST", body: JSON.stringify(body) }),
   importDeckFromUrl: (url) => request("/import/deck", { method: "POST", body: JSON.stringify({ url }) }),
   getMatches: () => request("/matches"),
   // Card metadata and EUR prices always come from the server cache; the

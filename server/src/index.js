@@ -5,9 +5,10 @@ import { pool } from "./db.js";
 import { computeMatches } from "./matching.js";
 import { hashPassword, verifyPassword, signToken, requireAuth } from "./auth.js";
 import { importDeckFromUrl } from "./deckImport.js";
-import { matchKey } from "./matchKey.js";
 import { warmCache } from "./scryfall.js";
 import { scryfallRouter } from "./routes/scryfall.js";
+import { mountImportRoutes } from "./routes/import.js";
+import { canEditFriend, deleteCard, getCards, patchCard, replaceList, upsertCard } from "./lists.js";
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(cors({ origin: ALLOWED_ORIGINS }));
 app.use(express.json({ limit: "5mb" }));
 
 app.use("/api", scryfallRouter);
+mountImportRoutes(app);
 
 // --- Auth ---
 
@@ -136,6 +138,7 @@ app.get("/api/friends", async (req, res) => {
     const { rows } = await pool.query(`
       SELECT f.id, f.name,
         (f.password_hash IS NOT NULL) AS has_password,
+        f.last_seen_at,
         COALESCE(c.cnt, 0)::int AS collection_count,
         COALESCE(w.cnt, 0)::int AS wishlist_count
       FROM friends f
@@ -165,17 +168,9 @@ app.delete("/api/friends/:id", requireAuth, async (req, res) => {
 
 // --- Cards (collection / wishlist) ---
 
-async function getCards(table, friendId) {
-  const { rows } = await pool.query(
-    `SELECT id, card_name, match_key, qty FROM ${table} WHERE friend_id = $1 ORDER BY card_name ASC`,
-    [friendId]
-  );
-  return rows;
-}
-
 app.get("/api/friends/:id", async (req, res) => {
   try {
-    const friend = await pool.query("SELECT id, name FROM friends WHERE id = $1", [req.params.id]);
+    const friend = await pool.query("SELECT id, name, last_seen_at, default_lang FROM friends WHERE id = $1", [req.params.id]);
     if (!friend.rows.length) return res.status(404).json({ error: "Trader not found." });
     const collection = await getCards("collection_cards", req.params.id);
     const wishlist = await getCards("wishlist_cards", req.params.id);
@@ -186,90 +181,83 @@ app.get("/api/friends/:id", async (req, res) => {
   }
 });
 
-// Replace an entire list (used for CSV import/replace and bulk save from the editor)
-async function replaceList(table, friendId, cards) {
-  const client = await pool.connect();
+function denyEdit(req, res) {
+  if (!canEditFriend(req.user, req.params.id)) {
+    res.status(403).json({ error: "You can only edit your own binder." });
+    return true;
+  }
+  return false;
+}
+
+async function handleWrite(res, fn) {
   try {
-    await client.query("BEGIN");
-    await client.query(`DELETE FROM ${table} WHERE friend_id = $1`, [friendId]);
-
-    const cleaned = cards
-      .map((c) => ({
-        cardName: String(c.cardName || "").trim(),
-        qty: Number.isFinite(parseInt(c.qty, 10)) && c.qty > 0 ? parseInt(c.qty, 10) : 1,
-      }))
-      .filter((c) => c.cardName);
-
-    // Merge duplicate cards (same match key) so CSV re-imports and manual
-    // double-adds don't inflate match counts or show duplicate rows.
-    const merged = [];
-    const byKey = new Map();
-    for (const c of cleaned) {
-      const key = matchKey(c.cardName);
-      const existing = byKey.get(key);
-      if (existing) {
-        existing.qty += c.qty;
-      } else {
-        const row = { cardName: c.cardName, qty: c.qty };
-        byKey.set(key, row);
-        merged.push(row);
-      }
-    }
-
-    // Insert in one multi-row statement (chunked to stay well under Postgres's
-    // parameter limit) instead of one round-trip per card — much faster for
-    // large collections, especially over a pooled connection.
-    const CHUNK_SIZE = 500;
-    for (let i = 0; i < merged.length; i += CHUNK_SIZE) {
-      const chunk = merged.slice(i, i + CHUNK_SIZE);
-      const values = [];
-      const placeholders = chunk.map((c, idx) => {
-        const base = idx * 4;
-        values.push(friendId, c.cardName, matchKey(c.cardName), c.qty);
-        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
-      });
-      await client.query(
-        `INSERT INTO ${table} (friend_id, card_name, match_key, qty) VALUES ${placeholders.join(", ")}`,
-        values
-      );
-    }
-
-    await client.query("COMMIT");
+    const cards = await fn();
+    if (Array.isArray(cards)) warmCache(cards.map((c) => c.card_name));
+    res.json(cards);
   } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Could not save binder." });
   }
 }
 
 app.put("/api/friends/:id/collection", requireAuth, async (req, res) => {
-  if (String(req.user.id) !== String(req.params.id) && !req.user.isAdmin) {
-    return res.status(403).json({ error: "You can only edit your own collection." });
-  }
-  try {
+  if (denyEdit(req, res)) return;
+  await handleWrite(res, async () => {
     await replaceList("collection_cards", req.params.id, req.body.cards || []);
-    const cards = await getCards("collection_cards", req.params.id);
-    warmCache(cards.map((c) => c.card_name));
-    res.json(cards);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Could not save collection." });
-  }
+    return getCards("collection_cards", req.params.id);
+  });
 });
 
 app.put("/api/friends/:id/wishlist", requireAuth, async (req, res) => {
-  if (String(req.user.id) !== String(req.params.id) && !req.user.isAdmin) {
-    return res.status(403).json({ error: "You can only edit your own wishlist." });
-  }
-  try {
+  if (denyEdit(req, res)) return;
+  await handleWrite(res, async () => {
     await replaceList("wishlist_cards", req.params.id, req.body.cards || []);
-    const cards = await getCards("wishlist_cards", req.params.id);
-    warmCache(cards.map((c) => c.card_name));
-    res.json(cards);
+    return getCards("wishlist_cards", req.params.id);
+  });
+});
+
+app.post("/api/friends/:id/collection", requireAuth, async (req, res) => {
+  if (denyEdit(req, res)) return;
+  await handleWrite(res, () => upsertCard("collection_cards", req.params.id, req.body));
+});
+
+app.post("/api/friends/:id/wishlist", requireAuth, async (req, res) => {
+  if (denyEdit(req, res)) return;
+  await handleWrite(res, () => upsertCard("wishlist_cards", req.params.id, req.body));
+});
+
+app.patch("/api/friends/:id/collection/:cardId", requireAuth, async (req, res) => {
+  if (denyEdit(req, res)) return;
+  await handleWrite(res, () => patchCard("collection_cards", req.params.id, req.params.cardId, req.body));
+});
+
+app.patch("/api/friends/:id/wishlist/:cardId", requireAuth, async (req, res) => {
+  if (denyEdit(req, res)) return;
+  await handleWrite(res, () => patchCard("wishlist_cards", req.params.id, req.params.cardId, req.body));
+});
+
+app.delete("/api/friends/:id/collection/:cardId", requireAuth, async (req, res) => {
+  if (denyEdit(req, res)) return;
+  try {
+    const removed = await deleteCard("collection_cards", req.params.id, req.params.cardId);
+    res.json({ removed });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     console.error(err);
-    res.status(500).json({ error: "Could not save wishlist." });
+    res.status(500).json({ error: "Could not remove card." });
+  }
+});
+
+app.delete("/api/friends/:id/wishlist/:cardId", requireAuth, async (req, res) => {
+  if (denyEdit(req, res)) return;
+  try {
+    const removed = await deleteCard("wishlist_cards", req.params.id, req.params.cardId);
+    res.json({ removed });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Could not remove card." });
   }
 });
 
