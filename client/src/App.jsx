@@ -28,6 +28,7 @@ function Gate() {
             element={<ComingSoon title="Trade" copy="Trade detail, comments and accept/decline arrive with the trades PR." />}
           />
           <Route path="/binder" element={<BinderScreen />} />
+          <Route path="/binder/:friendId" element={<BinderScreen />} />
           <Route path="/friends" element={<RosterScreen />} />
           <Route path="/friends/:id" element={<FriendScreen />} />
           <Route path="/notifications" element={<NotificationsScreen />} />
