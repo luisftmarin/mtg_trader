@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Download, Star } from "lucide-react";
 import { Button, Panel } from "../ui.jsx";
 import { CardName } from "../components/CardName.jsx";
 import { useAuth, useData } from "../context.jsx";
+import { TradeCard } from "./TradeScreens.jsx";
+import { api } from "../api.js";
 import {
   aggregateCanGetRows,
   buildMatchSummary,
@@ -13,7 +15,11 @@ import {
 
 export function TradesScreen() {
   const { identity } = useAuth();
-  const { friends, matches, loading, refreshMatches } = useData();
+  const { friends, matches, loading, refreshMatches, openTrades } = useData();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const tab = ["proposals", "history"].includes(params.get("tab")) ? params.get("tab") : "matches";
+  const [history, setHistory] = useState([]);
   const [viewMode, setViewMode] = useState("mine");
   const [selectedFriendName, setSelectedFriendName] = useState(identity.name);
   const priorityStorageKey = `mtg-trade-ledger:priority:${identity.id}`;
@@ -24,6 +30,18 @@ export function TradesScreen() {
       return "";
     }
   });
+
+  useEffect(() => {
+    if (tab !== "history") return undefined;
+    api.listTrades("history").then(setHistory).catch(() => setHistory([]));
+  }, [tab]);
+
+  function setTab(next) {
+    const copy = new URLSearchParams(params);
+    if (next === "matches") copy.delete("tab");
+    else copy.set("tab", next);
+    setParams(copy, { replace: true });
+  }
 
   function updatePriorityFriend(name) {
     setPriorityFriendName(name);
@@ -71,6 +89,35 @@ export function TradesScreen() {
           + New trade
         </Link>
       </div>
+      <div className="be-seg" style={{ marginBottom: 16, maxWidth: 420 }}>
+        <button type="button" className={tab === "matches" ? "is-on" : ""} onClick={() => setTab("matches")}>
+          Matches <span className="be-seg__n">{matches?.length || 0}</span>
+        </button>
+        <button type="button" className={tab === "proposals" ? "is-on" : ""} onClick={() => setTab("proposals")}>
+          Proposals <span className="be-seg__n">{openTrades.length}</span>
+        </button>
+        <button type="button" className={tab === "history" ? "is-on" : ""} onClick={() => setTab("history")}>
+          History
+        </button>
+      </div>
+      {tab === "proposals" && (
+        <div className="be-trade-list">
+          {openTrades.map((t) => (
+            <TradeCard key={t.id} trade={t} onOpen={(id) => navigate(`/trades/${id}`)} />
+          ))}
+          {!openTrades.length && <div className="be-empty-copy">No open proposals yet. Start one with + New trade.</div>}
+        </div>
+      )}
+      {tab === "history" && (
+        <div className="be-trade-list">
+          {history.map((t) => (
+            <TradeCard key={t.id} trade={t} onOpen={(id) => navigate(`/trades/${id}`)} />
+          ))}
+          {!history.length && <div className="be-empty-copy">Completed and closed trades land here. Prices are frozen at completion.</div>}
+        </div>
+      )}
+      {tab === "matches" && (
+      <>
       <div className="be-toolbar" style={{ marginBottom: 16 }}>
         <label className="toolbar-label">
           <Star size={13} color={priorityFriendName ? "var(--gold)" : "var(--text-muted)"} fill={priorityFriendName ? "var(--gold)" : "none"} />
@@ -209,6 +256,8 @@ export function TradesScreen() {
             </>
           )}
         </>
+      )}
+      </>
       )}
     </div>
   );

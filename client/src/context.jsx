@@ -53,6 +53,8 @@ export function DataProvider({ children }) {
   const { identity } = useAuth();
   const [friends, setFriends] = useState([]);
   const [matches, setMatches] = useState(null);
+  const [openTrades, setOpenTrades] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const refreshFriends = useCallback(async () => {
@@ -67,15 +69,37 @@ export function DataProvider({ children }) {
     return rows;
   }, []);
 
+  const refreshTrades = useCallback(async () => {
+    try {
+      const rows = await api.listTrades("open");
+      setOpenTrades(rows);
+      return rows;
+    } catch {
+      setOpenTrades([]);
+      return [];
+    }
+  }, []);
+
+  const refreshNotifications = useCallback(async () => {
+    try {
+      const rows = await api.listNotifications();
+      setNotifications(rows);
+      return rows;
+    } catch {
+      setNotifications([]);
+      return [];
+    }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
-      await Promise.all([refreshFriends(), refreshMatches()]);
+      await Promise.all([refreshFriends(), refreshMatches(), refreshTrades(), refreshNotifications()]);
     } catch {
       // keep previous
     }
     setLoading(false);
-  }, [refreshFriends, refreshMatches]);
+  }, [refreshFriends, refreshMatches, refreshTrades, refreshNotifications]);
 
   useEffect(() => {
     if (!identity) return undefined;
@@ -83,8 +107,19 @@ export function DataProvider({ children }) {
   }, [identity, refreshAll]);
 
   const value = useMemo(
-    () => ({ friends, matches, loading, refreshFriends, refreshMatches, refreshAll }),
-    [friends, matches, loading, refreshFriends, refreshMatches, refreshAll]
+    () => ({
+      friends,
+      matches,
+      openTrades,
+      notifications,
+      loading,
+      refreshFriends,
+      refreshMatches,
+      refreshTrades,
+      refreshNotifications,
+      refreshAll,
+    }),
+    [friends, matches, openTrades, notifications, loading, refreshFriends, refreshMatches, refreshTrades, refreshNotifications, refreshAll]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

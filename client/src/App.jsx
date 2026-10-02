@@ -7,7 +7,8 @@ import { AppShell } from "./screens/AppShell.jsx";
 import { DashboardScreen } from "./screens/DashboardScreen.jsx";
 import { TradesScreen } from "./screens/TradesScreen.jsx";
 import { BinderScreen } from "./screens/BinderScreen.jsx";
-import { FriendScreen, RosterScreen, NotificationsScreen, ComingSoon } from "./screens/FriendScreen.jsx";
+import { FriendScreen, RosterScreen, NotificationsScreen } from "./screens/FriendScreen.jsx";
+import { NewTradeScreen, TradeDetailScreen } from "./screens/TradeScreens.jsx";
 import { ProfileScreen } from "./screens/ProfileScreen.jsx";
 
 function Gate() {
@@ -19,14 +20,8 @@ function Gate() {
         <Route element={<AppShell />}>
           <Route path="/" element={<DashboardScreen />} />
           <Route path="/trades" element={<TradesScreen />} />
-          <Route
-            path="/trades/new"
-            element={<ComingSoon title="New trade" copy="Sending a proposal is the next PR. Matches are already on the Trades screen." />}
-          />
-          <Route
-            path="/trades/:id"
-            element={<ComingSoon title="Trade" copy="Trade detail, comments and accept/decline arrive with the trades PR." />}
-          />
+          <Route path="/trades/new" element={<NewTradeScreen />} />
+          <Route path="/trades/:id" element={<TradeDetailScreen />} />
           <Route path="/binder" element={<BinderScreen />} />
           <Route path="/binder/:friendId" element={<BinderScreen />} />
           <Route path="/friends" element={<RosterScreen />} />

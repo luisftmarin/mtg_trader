@@ -8,7 +8,10 @@ import { importDeckFromUrl } from "./deckImport.js";
 import { warmCache } from "./scryfall.js";
 import { scryfallRouter } from "./routes/scryfall.js";
 import { mountImportRoutes } from "./routes/import.js";
+import { mountTradeRoutes } from "./routes/trades.js";
+import { getReservedQty, notifyNewMatches } from "./tradeService.js";
 import { canEditFriend, deleteCard, getCards, patchCard, replaceList, upsertCard } from "./lists.js";
+import { matchKey } from "./matchKey.js";
 
 dotenv.config();
 
@@ -21,6 +24,7 @@ app.use(express.json({ limit: "5mb" }));
 
 app.use("/api", scryfallRouter);
 mountImportRoutes(app);
+mountTradeRoutes(app);
 
 // --- Auth ---
 
@@ -174,7 +178,12 @@ app.get("/api/friends/:id", async (req, res) => {
     if (!friend.rows.length) return res.status(404).json({ error: "Trader not found." });
     const collection = await getCards("collection_cards", req.params.id);
     const wishlist = await getCards("wishlist_cards", req.params.id);
-    res.json({ ...friend.rows[0], collection, wishlist });
+    const reserved = await getReservedQty();
+    const collectionWithReserve = collection.map((c) => ({
+      ...c,
+      reserved: reserved.get(`${req.params.id}:${c.match_key}`) || 0,
+    }));
+    res.json({ ...friend.rows[0], collection: collectionWithReserve, wishlist });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Could not load trader." });
@@ -205,7 +214,14 @@ app.put("/api/friends/:id/collection", requireAuth, async (req, res) => {
   if (denyEdit(req, res)) return;
   await handleWrite(res, async () => {
     await replaceList("collection_cards", req.params.id, req.body.cards || []);
-    return getCards("collection_cards", req.params.id);
+    const cards = await getCards("collection_cards", req.params.id);
+    const owner = await pool.query("SELECT name FROM friends WHERE id = $1", [req.params.id]);
+    notifyNewMatches(
+      Number(req.params.id),
+      owner.rows[0]?.name,
+      cards.map((c) => c.match_key)
+    ).catch(() => {});
+    return cards;
   });
 });
 
@@ -219,7 +235,12 @@ app.put("/api/friends/:id/wishlist", requireAuth, async (req, res) => {
 
 app.post("/api/friends/:id/collection", requireAuth, async (req, res) => {
   if (denyEdit(req, res)) return;
-  await handleWrite(res, () => upsertCard("collection_cards", req.params.id, req.body));
+  await handleWrite(res, async () => {
+    const cards = await upsertCard("collection_cards", req.params.id, req.body);
+    const owner = await pool.query("SELECT name FROM friends WHERE id = $1", [req.params.id]);
+    notifyNewMatches(Number(req.params.id), owner.rows[0]?.name, [req.body?.cardName && matchKey(req.body.cardName)].filter(Boolean)).catch(() => {});
+    return cards;
+  });
 });
 
 app.post("/api/friends/:id/wishlist", requireAuth, async (req, res) => {
@@ -275,18 +296,24 @@ app.post("/api/import/deck", requireAuth, async (req, res) => {
 
 app.get("/api/matches", async (req, res) => {
   try {
-    const [friendsRes, collRes, wishRes] = await Promise.all([
-      pool.query("SELECT id, name FROM friends"),
+    const [friendsRes, collRes, wishRes, reserved] = await Promise.all([
+      pool.query("SELECT id, name, COALESCE(binder_paused, false) AS binder_paused FROM friends"),
       pool.query("SELECT friend_id, card_name, match_key, qty FROM collection_cards"),
       pool.query("SELECT friend_id, card_name, match_key, qty FROM wishlist_cards"),
+      getReservedQty(),
     ]);
 
     const friendsData = {};
     for (const f of friendsRes.rows) {
+      if (f.binder_paused) continue;
       friendsData[f.id] = { name: f.name, collection: [], wishlist: [] };
     }
     for (const row of collRes.rows) {
-      if (friendsData[row.friend_id]) friendsData[row.friend_id].collection.push(row);
+      if (!friendsData[row.friend_id]) continue;
+      const reservedQty = reserved.get(`${row.friend_id}:${row.match_key}`) || 0;
+      const qty = Math.max(0, row.qty - reservedQty);
+      if (qty < 1) continue;
+      friendsData[row.friend_id].collection.push({ ...row, qty });
     }
     for (const row of wishRes.rows) {
       if (friendsData[row.friend_id]) friendsData[row.friend_id].wishlist.push(row);

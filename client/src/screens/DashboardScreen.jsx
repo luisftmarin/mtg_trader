@@ -6,7 +6,7 @@ import { useCardData } from "../components/CardPreview.jsx";
 
 export function DashboardScreen() {
   const { identity } = useAuth();
-  const { friends, matches } = useData();
+  const { friends, matches, openTrades } = useData();
   const navigate = useNavigate();
   const hour = new Date().getHours();
   const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -24,7 +24,7 @@ export function DashboardScreen() {
   const stats = [
     { label: "Cards you can get", value: get.length, sub: `from ${fromFriends} friends · ${formatEur(getTotal)}`, color: "var(--green)", go: () => navigate("/trades") },
     { label: "Cards friends want", value: give.length, sub: `worth ${formatEur(giveTotal)} to give`, color: "var(--text)", go: () => navigate("/trades") },
-    { label: "Open trades", value: 0, sub: "Trade proposals arrive in a later update", color: "var(--gold)", go: () => navigate("/trades") },
+    { label: "Open trades", value: openTrades.length, sub: openTrades.length ? `${openTrades.filter((t) => !t.viewerIsProposer && t.status === "proposed").length} waiting on you` : "No open proposals", color: "var(--gold)", go: () => navigate("/trades?tab=proposals") },
     { label: "Binder size", value: meFriend?.collection_count || 0, sub: `${meFriend?.wishlist_count || 0} on wishlist`, color: "var(--text)", go: () => navigate("/binder") },
   ];
 
@@ -70,7 +70,7 @@ export function DashboardScreen() {
                   You get <strong>{p.get}</strong> · you give <strong>{p.give}</strong>
                 </div>
               </div>
-              <button type="button" className="be-btn be-btn--outline" onClick={() => navigate("/trades/new")}>
+              <button type="button" className="be-btn be-btn--outline" onClick={() => navigate(`/trades/new?partner=${friends.find((f) => f.name === p.name)?.id || ""}`)}>
                 Propose
               </button>
             </div>
@@ -78,9 +78,21 @@ export function DashboardScreen() {
         </section>
         <section className="be-panel">
           <div className="be-panel__title">Open trades</div>
-          <div className="be-muted" style={{ padding: 16 }}>
-            Propose → accept → complete lands in the trades PR. Matches are live now on the Trades screen.
-          </div>
+          {openTrades.slice(0, 5).map((t) => (
+            <button key={t.id} type="button" className="be-partner" onClick={() => navigate(`/trades/${t.id}`)}>
+              <div>
+                <div className="be-partner__name">{t.otherName}</div>
+                <div className="be-muted">
+                  #{t.id} · {t.status} · get {t.get?.length || 0} · give {t.give?.length || 0}
+                </div>
+              </div>
+            </button>
+          ))}
+          {!openTrades.length && (
+            <div className="be-muted" style={{ padding: 16 }}>
+              No open proposals. Start one from Trades.
+            </div>
+          )}
         </section>
         <section className="be-panel">
           <div className="be-panel__title">Wishlist now available</div>
