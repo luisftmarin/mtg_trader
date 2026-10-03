@@ -32,6 +32,8 @@ export function AppShell() {
   const [globalQ, setGlobalQ] = useState("");
   const [drawer, setDrawer] = useState(null);
   const [binderTick, setBinderTick] = useState(0);
+  const [tabsHidden, setTabsHidden] = useState(false);
+  const mainRef = React.useRef(null);
 
   function afterBinderWrite() {
     setBinderTick((n) => n + 1);
@@ -47,7 +49,35 @@ export function AppShell() {
 
   useEffect(() => {
     setNotifOpen(false);
+    setTabsHidden(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!narrow) {
+      setTabsHidden(false);
+      return undefined;
+    }
+    const el = mainRef.current;
+    if (!el) return undefined;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setTabsHidden(false);
+      return undefined;
+    }
+    let lastY = el.scrollTop;
+    function onScroll() {
+      const y = el.scrollTop;
+      const delta = y - lastY;
+      lastY = y;
+      if (y < 24) {
+        setTabsHidden(false);
+        return;
+      }
+      if (delta > 10) setTabsHidden(true);
+      else if (delta < -10) setTabsHidden(false);
+    }
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [narrow, location.pathname]);
 
   const roster = useMemo(() => {
     const q = globalQ.trim().toLowerCase();
@@ -178,7 +208,7 @@ export function AppShell() {
             </div>
           </nav>
         )}
-        <main className="be-main">
+        <main className="be-main" ref={mainRef}>
           <Outlet
             context={{
               openAdd: (tab, friendId) => setDrawer({ kind: "add", tab, friendId: friendId || identity.id }),
@@ -192,7 +222,7 @@ export function AppShell() {
       </div>
 
       {narrow && (
-        <nav className="be-tabs">
+        <nav className={`be-tabs${tabsHidden ? " is-hidden" : ""}`} aria-label="Main">
           {MOBILE.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `be-tabs__item${isActive ? " is-active" : ""}`}>
               <span>{item.icon}</span>

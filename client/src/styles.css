@@ -297,6 +297,7 @@ a:hover {
 html,
 body,
 #root {
+  height: 100%;
   min-height: 100%;
 }
 
@@ -1311,6 +1312,8 @@ select.field {
 /* —— Binder Exchange shell (PR 2) —— */
 .be-app {
   min-height: 100vh;
+  height: 100%;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -1523,14 +1526,25 @@ select.field {
   border: 1px solid rgba(212,168,67,.4); border-radius: 6px; padding: 1px 6px;
 }
 .be-main { flex: 1; min-width: 0; overflow-y: auto; position: relative; }
-.be-app.is-narrow .be-main { padding-bottom: 80px; }
+.be-app.is-narrow .be-main { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
 .be-tabs {
-  position: absolute; left: 0; right: 0; bottom: 0;
+  position: fixed; left: 0; right: 0; bottom: 0;
   display: flex; justify-content: space-around;
   border-top: 1px solid var(--border);
   background: rgba(14,16,21,.96);
   backdrop-filter: blur(10px);
-  padding: 8px 4px 14px; z-index: 6;
+  padding: 8px 4px max(14px, env(safe-area-inset-bottom, 0px));
+  z-index: 6;
+  transform: translateY(0);
+  transition: transform 220ms var(--ease-out);
+}
+.be-tabs.is-hidden {
+  transform: translateY(calc(100% + 2px));
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .be-tabs { transition: none; }
+  .be-tabs.is-hidden { transform: none; pointer-events: auto; }
 }
 .be-tabs__item {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
