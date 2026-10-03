@@ -63,20 +63,28 @@ export function AppShell() {
       setTabsHidden(false);
       return undefined;
     }
-    let lastY = el.scrollTop;
-    function onScroll() {
-      const y = el.scrollTop;
-      const delta = y - lastY;
-      lastY = y;
-      if (y < 24) {
-        setTabsHidden(false);
-        return;
+    function attach(target, readY) {
+      let lastY = readY();
+      function onScroll() {
+        const y = readY();
+        const delta = y - lastY;
+        lastY = y;
+        if (y < 24) {
+          setTabsHidden(false);
+          return;
+        }
+        if (delta > 8) setTabsHidden(true);
+        else if (delta < -8) setTabsHidden(false);
       }
-      if (delta > 10) setTabsHidden(true);
-      else if (delta < -10) setTabsHidden(false);
+      target.addEventListener("scroll", onScroll, { passive: true });
+      return () => target.removeEventListener("scroll", onScroll);
     }
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
+    const offMain = attach(el, () => el.scrollTop);
+    const offWin = attach(window, () => window.scrollY || document.documentElement.scrollTop);
+    return () => {
+      offMain();
+      offWin();
+    };
   }, [narrow, location.pathname]);
 
   const roster = useMemo(() => {
