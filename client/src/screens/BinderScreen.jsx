@@ -171,20 +171,22 @@ export function BinderScreen() {
             {collCount} in collection · {wishCount} on wishlist
           </div>
         </div>
-        <button type="button" className="be-btn be-btn--outline" onClick={() => openImport(tab, ownerId)}>
-          Import list
-        </button>
-        <button
-          type="button"
-          className="be-btn be-btn--danger"
-          onClick={() => setConfirmClear(true)}
-          disabled={!rows.length || loading}
-        >
-          Clear {listLabel}
-        </button>
-        <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab, ownerId)}>
-          + Add cards
-        </button>
+        <div className="be-page__actions">
+          <button
+            type="button"
+            className="be-btn be-btn--danger"
+            onClick={() => setConfirmClear(true)}
+            disabled={!rows.length || loading}
+          >
+            Clear {listLabel}
+          </button>
+          <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab, ownerId)}>
+            + Add cards
+          </button>
+          <button type="button" className="be-btn be-btn--outline" onClick={() => openImport(tab, ownerId)}>
+            Import list
+          </button>
+        </div>
       </div>
       <div className="be-toolbar">
         <div className="be-seg">
