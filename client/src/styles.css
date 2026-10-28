@@ -1392,7 +1392,12 @@ select.field {
   color: var(--text);
   cursor: pointer;
   font-size: 16px;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+  flex: none;
 }
+.be-bell:hover { border-color: var(--gold); color: var(--gold); }
 .be-bell-wrap { position: relative; }
 .be-userchip {
   display: flex;

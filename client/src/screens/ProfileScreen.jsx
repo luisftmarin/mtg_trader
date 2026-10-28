@@ -31,14 +31,6 @@ export function ProfileScreen() {
         </div>
       </section>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <a
-          className="be-btn be-btn--gold"
-          href="https://github.com/luisftmarin/mtg_trader/issues/new?template=feature_request.yml&labels=enhancement"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Request a feature
-        </a>
         <button type="button" className="be-btn be-btn--outline" onClick={() => setShowPw(true)}>
           Change password
         </button>
