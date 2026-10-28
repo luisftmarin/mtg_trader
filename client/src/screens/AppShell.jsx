@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Lightbulb } from "lucide-react";
 import { FEATURE_REQUEST_URL } from "../lib/feedback.js";
-import { activeLabel, displayName, initials, timeAgo } from "../lib/format.js";
+import { activeLabel, displayName, initials, isOnline, timeAgo } from "../lib/format.js";
 import { matchCountWithMe, useAuth, useData } from "../context.jsx";
 import { api } from "../api.js";
 import { notificationCopy } from "./TradeScreens.jsx";
@@ -207,14 +207,19 @@ export function AppShell() {
             </div>
             <div className="be-roster-head">
               Roster · {friends.length}
-              <span className="be-online">{loading ? "…" : `${friends.length} traders`}</span>
+              <span className="be-online">
+                {loading ? "…" : `● ${friends.filter((f) => isOnline(f.last_seen_at)).length} online`}
+              </span>
             </div>
             <div className="be-roster">
               {roster.map((f) => {
                 const n = matchCountWithMe(matches, identity.name, f.name);
                 return (
                   <button key={f.id} type="button" className="be-roster__item" onClick={() => navigate(`/friends/${f.id}`)}>
-                    <div className="be-roster__av">{initials(displayName(f))}</div>
+                    <div className="be-roster__av">
+                      {initials(displayName(f))}
+                      {isOnline(f.last_seen_at) && <span className="be-online-dot" aria-label="online" />}
+                    </div>
                     <div className="be-roster__meta">
                       <div className="be-roster__name">
                         {displayName(f)}

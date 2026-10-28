@@ -54,7 +54,7 @@ export async function touchLastSeen(userId) {
   await pool.query(
     `UPDATE friends
      SET last_seen_at = now()
-     WHERE id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '2 minutes')`,
+     WHERE id = $1 AND (last_seen_at IS NULL OR last_seen_at < now() - interval '30 seconds')`,
     [userId]
   );
 }

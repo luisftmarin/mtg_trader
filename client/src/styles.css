@@ -1522,6 +1522,11 @@ select.field {
   background: var(--surface); border: 1px solid var(--border-strong);
   display: grid; place-items: center;
   font: 600 11px var(--font-mono); color: var(--gold); flex: none;
+  position: relative;
+}
+.be-online-dot {
+  position: absolute; right: -3px; bottom: -3px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 0 2px var(--bg);
 }
 .be-roster__meta { flex: 1; min-width: 0; }
 .be-roster__name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

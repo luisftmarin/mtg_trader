@@ -68,6 +68,7 @@ export const api = {
   actOnTrade: (id, action) => request(`/trades/${id}/${action}`, { method: "POST" }),
   listComments: (id) => request(`/trades/${id}/comments`),
   addComment: (id, body) => request(`/trades/${id}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
+  heartbeat: () => request("/heartbeat", { method: "POST" }),
   getProfile: () => request("/profile"),
   saveProfile: (body) => request("/profile", { method: "PATCH", body: JSON.stringify(body) }),
   listNotifications: () => request("/notifications"),

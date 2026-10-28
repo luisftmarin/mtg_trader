@@ -134,6 +134,12 @@ app.post("/api/friends/:id/reset-password", requireAuth, async (req, res) => {
   }
 });
 
+// The client pings this every minute while the tab is visible; requireAuth
+// already stamps last_seen_at, so there is nothing else to do.
+app.post("/api/heartbeat", requireAuth, (req, res) => {
+  res.status(204).end();
+});
+
 app.get("/api/profile", requireAuth, async (req, res) => {
   try {
     res.json(await getProfile(req.user.id));

@@ -106,6 +106,22 @@ export function DataProvider({ children }) {
     refreshAll();
   }, [identity, refreshAll]);
 
+  useEffect(() => {
+    if (!identity) return undefined;
+    function beat() {
+      if (document.visibilityState !== "visible") return;
+      api.heartbeat().catch(() => {});
+      refreshFriends().catch(() => {});
+    }
+    beat();
+    const timer = window.setInterval(beat, 60000);
+    document.addEventListener("visibilitychange", beat);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", beat);
+    };
+  }, [identity, refreshFriends]);
+
   const value = useMemo(
     () => ({
       friends,

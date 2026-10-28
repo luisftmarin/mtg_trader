@@ -57,8 +57,17 @@ export function timeAgo(value) {
   return d === 1 ? "yesterday" : `${d} days ago`;
 }
 
+// The client heartbeats every 60 s while the tab is visible, so anyone seen
+// in the last 3 minutes still has the app open.
+const ONLINE_MS = 3 * 60 * 1000;
+
+export function isOnline(lastSeenAt) {
+  const t = new Date(lastSeenAt).getTime();
+  return Number.isFinite(t) && Date.now() - t < ONLINE_MS;
+}
+
 export function activeLabel(lastSeenAt) {
   if (!lastSeenAt) return "offline";
-  const ago = timeAgo(lastSeenAt);
-  return ago === "just now" ? "active now" : `active ${ago}`;
+  if (isOnline(lastSeenAt)) return "online";
+  return `active ${timeAgo(lastSeenAt)}`;
 }
