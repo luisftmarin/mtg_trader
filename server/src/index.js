@@ -9,6 +9,7 @@ import { warmCache } from "./scryfall.js";
 import { scryfallRouter } from "./routes/scryfall.js";
 import { mountImportRoutes } from "./routes/import.js";
 import { mountTradeRoutes } from "./routes/trades.js";
+import { getProfile, updateProfile } from "./profile.js";
 import { getReservedQty, notifyNewMatches } from "./tradeService.js";
 import { canEditFriend, deleteCard, getCards, patchCard, replaceList, upsertCard } from "./lists.js";
 import { matchKey } from "./matchKey.js";
@@ -133,6 +134,26 @@ app.post("/api/friends/:id/reset-password", requireAuth, async (req, res) => {
   }
 });
 
+app.get("/api/profile", requireAuth, async (req, res) => {
+  try {
+    res.json(await getProfile(req.user.id));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Could not load profile." });
+  }
+});
+
+app.patch("/api/profile", requireAuth, async (req, res) => {
+  try {
+    res.json(await updateProfile(req.user.id, req.body || {}));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Could not save profile." });
+  }
+});
+
 // --- Friends ---
 // Viewing the roster and matches doesn't require auth (it's a shared board),
 // but every route below that changes data does.
@@ -141,8 +162,10 @@ app.get("/api/friends", async (req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT f.id, f.name,
+        COALESCE(NULLIF(f.display_name, ''), f.name) AS display_name,
         (f.password_hash IS NOT NULL) AS has_password,
         f.last_seen_at,
+        f.binder_paused,
         COALESCE(c.cnt, 0)::int AS collection_count,
         COALESCE(w.cnt, 0)::int AS wishlist_count
       FROM friends f
@@ -174,7 +197,10 @@ app.delete("/api/friends/:id", requireAuth, async (req, res) => {
 
 app.get("/api/friends/:id", async (req, res) => {
   try {
-    const friend = await pool.query("SELECT id, name, last_seen_at, default_lang FROM friends WHERE id = $1", [req.params.id]);
+    const friend = await pool.query(
+      "SELECT id, name, display_name, city, last_seen_at, default_lang, binder_paused FROM friends WHERE id = $1",
+      [req.params.id]
+    );
     if (!friend.rows.length) return res.status(404).json({ error: "Trader not found." });
     const collection = await getCards("collection_cards", req.params.id);
     const wishlist = await getCards("wishlist_cards", req.params.id);

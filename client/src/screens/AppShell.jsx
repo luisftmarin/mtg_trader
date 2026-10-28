@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Lightbulb } from "lucide-react";
 import { FEATURE_REQUEST_URL } from "../lib/feedback.js";
-import { initials, timeAgo } from "../lib/format.js";
+import { activeLabel, displayName, initials, timeAgo } from "../lib/format.js";
 import { matchCountWithMe, useAuth, useData } from "../context.jsx";
 import { api } from "../api.js";
 import { notificationCopy } from "./TradeScreens.jsx";
@@ -171,7 +171,7 @@ export function AppShell() {
         </div>
         <button type="button" className="be-userchip" onClick={() => navigate("/profile")}>
           <div className="be-avatar be-avatar--gold">{meIni}</div>
-          {!narrow && <div>{identity.name}</div>}
+          {!narrow && <div>{identity.displayName || identity.name}</div>}
         </button>
       </header>
 
@@ -214,11 +214,15 @@ export function AppShell() {
                 const n = matchCountWithMe(matches, identity.name, f.name);
                 return (
                   <button key={f.id} type="button" className="be-roster__item" onClick={() => navigate(`/friends/${f.id}`)}>
-                    <div className="be-roster__av">{initials(f.name)}</div>
+                    <div className="be-roster__av">{initials(displayName(f))}</div>
                     <div className="be-roster__meta">
-                      <div className="be-roster__name">{f.name}</div>
+                      <div className="be-roster__name">
+                        {displayName(f)}
+                        {f.id === identity.id ? " (you)" : ""}
+                        {f.binder_paused ? " · paused" : ""}
+                      </div>
                       <div className="be-roster__counts">
-                        {f.collection_count} · {f.wishlist_count} wish
+                        {f.collection_count} · {f.wishlist_count} wish · {activeLabel(f.last_seen_at)}
                       </div>
                     </div>
                     {n > 0 && <span className="be-match-pill">{n}</span>}

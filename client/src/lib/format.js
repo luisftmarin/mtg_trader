@@ -34,6 +34,11 @@ export function manaDots(colorIdentity) {
   return dots.length ? dots : ["var(--mana-c)"];
 }
 
+export function displayName(friend) {
+  const n = String(friend?.display_name || friend?.displayName || friend?.name || "").trim();
+  return n || String(friend?.name || "");
+}
+
 export function initials(name) {
   return String(name || "")
     .replace(/[^a-zA-Z0-9]/g, "")
@@ -50,4 +55,10 @@ export function timeAgo(value) {
   if (s < 86400) return `${Math.round(s / 3600)} h ago`;
   const d = Math.round(s / 86400);
   return d === 1 ? "yesterday" : `${d} days ago`;
+}
+
+export function activeLabel(lastSeenAt) {
+  if (!lastSeenAt) return "offline";
+  const ago = timeAgo(lastSeenAt);
+  return ago === "just now" ? "active now" : `active ${ago}`;
 }

@@ -1,7 +1,10 @@
 import { pool } from "./db.js";
+import { settingAllows } from "./profileSettings.js";
 
 export async function notify(friendId, kind, payload) {
   if (!friendId || friendId === payload?.fromId) return;
+  const { rows } = await pool.query("SELECT settings FROM friends WHERE id = $1", [friendId]);
+  if (!settingAllows(rows[0]?.settings, kind)) return;
   await pool.query("INSERT INTO notifications (friend_id, kind, payload) VALUES ($1, $2, $3)", [
     friendId,
     kind,
