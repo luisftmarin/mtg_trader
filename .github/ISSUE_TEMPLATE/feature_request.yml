@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest an idea for Binder Exchange
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: The feature in a sentence or two.
+      placeholder: e.g. Let me filter matches by colour identity.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why does this help?
+      description: Who is it for, and what is awkward today?
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Sketches, examples, or “nice to have” details. Optional.
