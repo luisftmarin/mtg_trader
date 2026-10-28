@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Lightbulb } from "lucide-react";
+import { FEATURE_REQUEST_URL } from "../lib/feedback.js";
 import { initials, timeAgo } from "../lib/format.js";
 import { matchCountWithMe, useAuth, useData } from "../context.jsx";
 import { api } from "../api.js";
@@ -115,6 +117,16 @@ export function AppShell() {
             <input placeholder="Search cards or friends…" value={globalQ} onChange={(e) => setGlobalQ(e.target.value)} />
           </div>
         )}
+        <a
+          className="be-bell"
+          href={FEATURE_REQUEST_URL}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Request a feature"
+          title="Request a feature"
+        >
+          <Lightbulb size={18} strokeWidth={2} />
+        </a>
         <div className="be-bell-wrap">
           <button type="button" className="be-bell" aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}>
             🔔

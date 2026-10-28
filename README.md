@@ -28,7 +28,7 @@ GitHub:
 
 **[Request a feature](https://github.com/luisftmarin/mtg_trader/issues/new?template=feature_request.yml&labels=enhancement)**
 
-The same button is on **Profile & settings** in the app.
+In the app, use the lightbulb icon to the left of the notification bell.
 
 ## Stack
 
