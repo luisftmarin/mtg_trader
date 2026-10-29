@@ -1344,8 +1344,15 @@ select.field {
 .be-brand__name {
   font: 600 16px var(--font-display);
   letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.be-app.is-narrow .be-topbar { gap: 8px; padding: 0 12px; }
+.be-app.is-narrow .be-brand { gap: 8px; }
+@media (max-width: 480px) {
+  .be-brand__name { display: none; }
 }
 .be-mark {
+  flex: none;
   width: 30px;
   height: 30px;
   border-radius: 8px;
@@ -1399,6 +1406,24 @@ select.field {
 }
 .be-bell:hover { border-color: var(--gold); color: var(--gold); }
 .be-bell-wrap { position: relative; }
+.be-feature-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: none;
+  flex: none;
+}
+.be-feature-btn svg { color: var(--gold); }
+.be-feature-btn:hover { border-color: var(--gold); color: var(--gold); }
 .be-userchip {
   display: flex;
   align-items: center;
@@ -1682,9 +1707,16 @@ select.field {
 .be-panel__title--gold { font: 500 10px var(--font-mono); letter-spacing: 0.14em; color: var(--gold); text-transform: uppercase; }
 .be-partner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider); }
 .be-partner__name { font-weight: 700; font-size: 14px; }
-.be-wish-strip { display: flex; gap: 12px; overflow-x: auto; padding: 14px; }
-.be-wish-thumb { min-width: 110px; background: none; border: 0; color: var(--text); text-align: left; cursor: pointer; }
-.be-wish-thumb__name { font-size: 13px; font-weight: 600; }
+.be-wish-strip { display: flex; flex-direction: column; }
+.be-wish-thumb {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;
+  padding: 12px 16px; background: none; border: 0; border-bottom: 1px solid var(--divider);
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.be-wish-thumb:last-child { border-bottom: 0; }
+.be-wish-thumb:hover { background: var(--surface-hover); }
+.be-wish-thumb__name { font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.be-wish-thumb .be-muted { flex: none; }
 .be-friend-av {
   width: 56px; height: 56px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border-strong);
   display: grid; place-items: center; font: 600 18px var(--font-mono); color: var(--gold);
