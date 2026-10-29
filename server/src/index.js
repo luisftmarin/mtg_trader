@@ -204,7 +204,7 @@ app.delete("/api/friends/:id", requireAuth, async (req, res) => {
 app.get("/api/friends/:id", async (req, res) => {
   try {
     const friend = await pool.query(
-      "SELECT id, name, display_name, city, last_seen_at, default_lang, binder_paused FROM friends WHERE id = $1",
+      "SELECT id, name, display_name, last_seen_at, default_lang, binder_paused FROM friends WHERE id = $1",
       [req.params.id]
     );
     if (!friend.rows.length) return res.status(404).json({ error: "Trader not found." });

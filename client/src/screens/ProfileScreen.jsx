@@ -5,8 +5,6 @@ import { useAuth } from "../context.jsx";
 import { useToast } from "../components/ToastHost.jsx";
 import { TextField, Button } from "../ui.jsx";
 
-const LANGS = ["EN", "DE", "PT", "ES", "FR", "IT", "JP"];
-
 const TOGGLES = [
   { key: "alert_matches", label: "New match alerts", hint: "When a friend adds a card you want." },
   { key: "alert_proposals", label: "Trade proposals", hint: "Proposals, accepts, declines, and completions." },
@@ -22,8 +20,6 @@ export function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [displayName, setDisplayName] = useState(identity.name);
-  const [city, setCity] = useState("");
-  const [defaultLang, setDefaultLang] = useState("EN");
   const [binderPaused, setBinderPaused] = useState(false);
   const [settings, setSettings] = useState({
     alert_matches: true,
@@ -38,8 +34,6 @@ export function ProfileScreen() {
       .getProfile()
       .then((p) => {
         setDisplayName(p.displayName);
-        setCity(p.city || "");
-        setDefaultLang(p.defaultLang || "EN");
         setBinderPaused(!!p.binderPaused);
         setSettings(p.settings);
         setPricesUpdatedAt(p.pricesUpdatedAt);
@@ -52,9 +46,8 @@ export function ProfileScreen() {
     e.preventDefault();
     setBusy(true);
     try {
-      const saved = await api.saveProfile({ displayName, city, defaultLang, binderPaused, settings });
+      const saved = await api.saveProfile({ displayName, binderPaused, settings });
       setDisplayName(saved.displayName);
-      setCity(saved.city || "");
       signIn({ ...identity, displayName: saved.displayName, binderPaused: saved.binderPaused }, token);
       toast("Profile saved", "var(--green)");
     } catch (err) {
@@ -92,33 +85,6 @@ export function ProfileScreen() {
               <div>
                 <label htmlFor="profile-username">Username</label>
                 <input id="profile-username" value={identity.name} readOnly />
-              </div>
-              <div>
-                <label htmlFor="profile-city">City</label>
-                <input
-                  id="profile-city"
-                  data-testid="profile-city"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Optional"
-                  autoComplete="address-level2"
-                />
-              </div>
-              <div>
-                <label htmlFor="profile-lang">Default card language</label>
-                <select
-                  id="profile-lang"
-                  className="field"
-                  data-testid="profile-lang"
-                  value={defaultLang}
-                  onChange={(e) => setDefaultLang(e.target.value)}
-                >
-                  {LANGS.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
           </section>
