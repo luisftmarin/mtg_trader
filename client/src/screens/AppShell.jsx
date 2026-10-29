@@ -118,14 +118,15 @@ export function AppShell() {
           </div>
         )}
         <a
-          className="be-bell"
+          className="be-feature-btn"
           href={FEATURE_REQUEST_URL}
           target="_blank"
           rel="noreferrer"
           aria-label="Request a feature"
           title="Request a feature"
         >
-          <Lightbulb size={18} strokeWidth={2} />
+          <Lightbulb size={15} strokeWidth={2.2} />
+          <span>Request a feature</span>
         </a>
         <div className="be-bell-wrap">
           <button type="button" className="be-bell" aria-label="Notifications" onClick={() => setNotifOpen((v) => !v)}>

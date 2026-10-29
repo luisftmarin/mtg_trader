@@ -28,7 +28,7 @@ GitHub:
 
 **[Request a feature](https://github.com/luisftmarin/mtg_trader/issues/new?template=feature_request.yml&labels=enhancement)**
 
-In the app, use the lightbulb icon to the left of the notification bell.
+In the app, use the **Request a feature** button next to the notification bell.
 
 ## Stack
 

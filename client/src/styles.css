@@ -1344,8 +1344,15 @@ select.field {
 .be-brand__name {
   font: 600 16px var(--font-display);
   letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.be-app.is-narrow .be-topbar { gap: 8px; padding: 0 12px; }
+.be-app.is-narrow .be-brand { gap: 8px; }
+@media (max-width: 480px) {
+  .be-brand__name { display: none; }
 }
 .be-mark {
+  flex: none;
   width: 30px;
   height: 30px;
   border-radius: 8px;
@@ -1399,6 +1406,24 @@ select.field {
 }
 .be-bell:hover { border-color: var(--gold); color: var(--gold); }
 .be-bell-wrap { position: relative; }
+.be-feature-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: none;
+  flex: none;
+}
+.be-feature-btn svg { color: var(--gold); }
+.be-feature-btn:hover { border-color: var(--gold); color: var(--gold); }
 .be-userchip {
   display: flex;
   align-items: center;
