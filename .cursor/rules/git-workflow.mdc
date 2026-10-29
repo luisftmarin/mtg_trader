@@ -1,0 +1,15 @@
+---
+description: Never push or merge to main; every change goes through its own PR
+alwaysApply: true
+---
+
+# Git workflow: PRs only, never main
+
+- Never commit on, push to, or merge into `main` (local or `origin`).
+- Start each change on a new branch off `origin/main`, e.g. `git checkout -b cursor/<short-name> origin/main`.
+- Before every `git commit`, run `git branch --show-current` and stop if it prints `main`.
+  Other tools may switch branches in this repo mid-task.
+- Push only the feature branch: `git push -u origin <branch>`, never `git push origin main`.
+- Open a PR into `main` and leave merging to Luis. Don't merge PRs yourself.
+- One PR per change unless Luis asks to combine them.
+- Never force-push, reset `main`, or delete branches without Luis's explicit OK.
