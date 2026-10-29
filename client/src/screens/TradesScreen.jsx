@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Download, Star } from "lucide-react";
 import { Button, Panel } from "../ui.jsx";
@@ -263,14 +264,68 @@ export function TradesScreen() {
   );
 }
 
-function OwnerPeerCell({ primary, others, priorityFriendName }) {
+function OwnerPeerCell({ primary, others, owners, priorityFriendName }) {
+  const pillRef = useRef(null);
+  const [pos, setPos] = useState(null);
+
+  useEffect(() => {
+    if (!pos) return undefined;
+    const close = () => setPos(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [pos]);
+
   if (!others?.length) {
     return <span className={primary === priorityFriendName ? "is-prio" : undefined}>{primary}</span>;
   }
+
+  const qtyByName = new Map((owners || []).map((o) => [o.name, o.ownerHas]));
+  const everyone = [primary, ...others];
+
+  function open() {
+    const rect = pillRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = 200;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    const below = rect.bottom + 6;
+    const fitsBelow = below + 36 + everyone.length * 30 < window.innerHeight;
+    setPos(fitsBelow ? { left, top: below } : { left, bottom: window.innerHeight - rect.top + 6 });
+  }
+
   return (
-    <span>
+    <span className="be-owners">
       <span className={primary === priorityFriendName ? "is-prio" : undefined}>{primary}</span>
-      <span className="be-muted"> +{others.length}</span>
+      <button
+        ref={pillRef}
+        type="button"
+        className={`be-owners__pill${pos ? " is-open" : ""}`}
+        aria-label={others.length === 1 ? "1 more trader has it" : `${others.length} more traders have it`}
+        aria-expanded={!!pos}
+        onMouseEnter={open}
+        onMouseLeave={() => setPos(null)}
+        onFocus={open}
+        onBlur={() => setPos(null)}
+        onClick={open}
+      >
+        +{others.length}
+      </button>
+      {pos &&
+        createPortal(
+          <div className="be-owners__pop" style={pos} role="tooltip">
+            <div className="be-owners__head">{everyone.length} traders have it</div>
+            {everyone.map((name) => (
+              <div key={name} className={`be-owners__row${name === priorityFriendName ? " is-prio" : ""}`}>
+                <span>{name}</span>
+                {qtyByName.has(name) && <span className="be-owners__qty">×{qtyByName.get(name)}</span>}
+              </div>
+            ))}
+          </div>,
+          document.body
+        )}
     </span>
   );
 }
@@ -301,13 +356,13 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName }) 
                 </td>
                 {showBoth && (
                   <td>
-                    <OwnerPeerCell primary={r.owner} others={r.otherOwners} priorityFriendName={priorityFriendName} />
+                    <OwnerPeerCell primary={r.owner} others={r.otherOwners} owners={r.owners} priorityFriendName={priorityFriendName} />
                   </td>
                 )}
                 {showBoth && <td className={r.seeker === priorityFriendName ? "is-prio" : undefined}>{r.seeker}</td>}
                 {!showBoth && peerKey === "owner" && (
                   <td>
-                    <OwnerPeerCell primary={r.owner} others={r.otherOwners} priorityFriendName={priorityFriendName} />
+                    <OwnerPeerCell primary={r.owner} others={r.otherOwners} owners={r.owners} priorityFriendName={priorityFriendName} />
                   </td>
                 )}
                 {!showBoth && peerKey && peerKey !== "owner" && (
