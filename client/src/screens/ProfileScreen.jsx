@@ -20,6 +20,7 @@ export function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [displayName, setDisplayName] = useState(identity.name);
+  const [phone, setPhone] = useState("");
   const [binderPaused, setBinderPaused] = useState(false);
   const [settings, setSettings] = useState({
     alert_matches: true,
@@ -34,6 +35,7 @@ export function ProfileScreen() {
       .getProfile()
       .then((p) => {
         setDisplayName(p.displayName);
+        setPhone(p.phone ? `+${p.phone}` : "");
         setBinderPaused(!!p.binderPaused);
         setSettings(p.settings);
         setPricesUpdatedAt(p.pricesUpdatedAt);
@@ -46,8 +48,9 @@ export function ProfileScreen() {
     e.preventDefault();
     setBusy(true);
     try {
-      const saved = await api.saveProfile({ displayName, binderPaused, settings });
+      const saved = await api.saveProfile({ displayName, phone, binderPaused, settings });
       setDisplayName(saved.displayName);
+      setPhone(saved.phone ? `+${saved.phone}` : "");
       signIn({ ...identity, displayName: saved.displayName, binderPaused: saved.binderPaused }, token);
       toast("Profile saved", "var(--green)");
     } catch (err) {
@@ -85,6 +88,21 @@ export function ProfileScreen() {
               <div>
                 <label htmlFor="profile-username">Username</label>
                 <input id="profile-username" value={identity.name} readOnly />
+              </div>
+              <div className="be-profile-fields__wide">
+                <label htmlFor="profile-phone">WhatsApp number</label>
+                <input
+                  id="profile-phone"
+                  data-testid="profile-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+351 912 345 678"
+                  autoComplete="tel"
+                />
+                <div className="be-muted be-profile-hint">
+                  Optional. Include the country code. Only signed-in traders can see it, so they can message you about a trade.
+                </div>
               </div>
             </div>
           </section>

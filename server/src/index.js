@@ -9,7 +9,7 @@ import { warmCache } from "./scryfall.js";
 import { scryfallRouter } from "./routes/scryfall.js";
 import { mountImportRoutes } from "./routes/import.js";
 import { mountTradeRoutes } from "./routes/trades.js";
-import { getProfile, updateProfile } from "./profile.js";
+import { getProfile, listContacts, updateProfile } from "./profile.js";
 import { getReservedQty, notifyNewMatches } from "./tradeService.js";
 import { canEditFriend, deleteCard, getCards, patchCard, replaceList, upsertCard } from "./lists.js";
 import { matchKey } from "./matchKey.js";
@@ -157,6 +157,15 @@ app.patch("/api/profile", requireAuth, async (req, res) => {
     if (err.status) return res.status(err.status).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: "Could not save profile." });
+  }
+});
+
+app.get("/api/contacts", requireAuth, async (req, res) => {
+  try {
+    res.json(await listContacts());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not load contacts." });
   }
 });
 

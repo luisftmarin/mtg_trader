@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CardName } from "../components/CardName.jsx";
+import { WhatsAppButton } from "../components/WhatsAppButton.jsx";
 import { ManaDots } from "../components/QtyStepper.jsx";
 import { activeLabel, displayName, formatEur, initials, manaDots, matchKey, timeAgo } from "../lib/format.js";
 import { useCardData } from "../components/CardPreview.jsx";
@@ -57,6 +58,7 @@ export function FriendScreen() {
               Edit binder
             </button>
           )}
+          <WhatsAppButton friendId={friend.id} name={shown} />
           <button type="button" className="be-btn be-btn--gold" data-testid="friend-propose" onClick={() => navigate(`/trades/new?partner=${friend.id}`)}>
             Propose trade
           </button>

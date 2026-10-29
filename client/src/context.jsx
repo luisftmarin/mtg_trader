@@ -55,6 +55,7 @@ export function DataProvider({ children }) {
   const [matches, setMatches] = useState(null);
   const [openTrades, setOpenTrades] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [contacts, setContacts] = useState({});
   const [loading, setLoading] = useState(true);
 
   const refreshFriends = useCallback(async () => {
@@ -91,15 +92,26 @@ export function DataProvider({ children }) {
     }
   }, []);
 
+  const refreshContacts = useCallback(async () => {
+    try {
+      const rows = await api.listContacts();
+      const byId = Object.fromEntries(rows.map((r) => [String(r.id), r.phone]));
+      setContacts(byId);
+      return byId;
+    } catch {
+      return {};
+    }
+  }, []);
+
   const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
-      await Promise.all([refreshFriends(), refreshMatches(), refreshTrades(), refreshNotifications()]);
+      await Promise.all([refreshFriends(), refreshMatches(), refreshTrades(), refreshNotifications(), refreshContacts()]);
     } catch {
       // keep previous
     }
     setLoading(false);
-  }, [refreshFriends, refreshMatches, refreshTrades, refreshNotifications]);
+  }, [refreshFriends, refreshMatches, refreshTrades, refreshNotifications, refreshContacts]);
 
   useEffect(() => {
     if (!identity) return undefined;
@@ -128,14 +140,16 @@ export function DataProvider({ children }) {
       matches,
       openTrades,
       notifications,
+      contacts,
       loading,
       refreshFriends,
       refreshMatches,
       refreshTrades,
       refreshNotifications,
+      refreshContacts,
       refreshAll,
     }),
-    [friends, matches, openTrades, notifications, loading, refreshFriends, refreshMatches, refreshTrades, refreshNotifications, refreshAll]
+    [friends, matches, openTrades, notifications, contacts, loading, refreshFriends, refreshMatches, refreshTrades, refreshNotifications, refreshContacts, refreshAll]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

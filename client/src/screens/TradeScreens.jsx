@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api.js";
 import { CardName } from "../components/CardName.jsx";
 import { useToast } from "../components/ToastHost.jsx";
+import { WhatsAppButton } from "../components/WhatsAppButton.jsx";
 import { formatEur, initials, matchKey, timeAgo } from "../lib/format.js";
 import { useCardData } from "../components/CardPreview.jsx";
 import { useAuth, useData } from "../context.jsx";
@@ -287,6 +288,10 @@ export function TradeDetailScreen() {
             #{trade.id} · {timeAgo(trade.createdAt)} · proposed by {trade.proposerName}
           </div>
         </div>
+        <WhatsAppButton
+          friendId={trade.viewerIsProposer ? trade.partnerId : trade.proposerId}
+          name={trade.otherName}
+        />
         <StatusBadge status={trade.status} />
       </div>
       {trade.status === "accepted" && (

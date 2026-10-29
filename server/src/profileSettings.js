@@ -15,6 +15,16 @@ export function mergeSettings(raw) {
   };
 }
 
+// Stored as digits only with the country code (what wa.me expects). Returns
+// "" for blank input and null when the number can't be valid.
+export function normalizePhone(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  if (/[^\d\s+().-]/.test(s)) return null;
+  const digits = s.replace(/^00/, "").replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15 ? digits : null;
+}
+
 export function settingAllows(settings, kind) {
   const s = mergeSettings(settings);
   if (kind === "match") return s.alert_matches;

@@ -70,6 +70,7 @@ export const api = {
   addComment: (id, body) => request(`/trades/${id}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
   heartbeat: () => request("/heartbeat", { method: "POST" }),
   getProfile: () => request("/profile"),
+  listContacts: () => request("/contacts"),
   saveProfile: (body) => request("/profile", { method: "PATCH", body: JSON.stringify(body) }),
   listNotifications: () => request("/notifications"),
   markNotificationsRead: () => request("/notifications/read-all", { method: "POST" }),

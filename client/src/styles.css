@@ -1743,6 +1743,11 @@ select.field {
 .be-panel__title--gold { font: 500 10px var(--font-mono); letter-spacing: 0.14em; color: var(--gold); text-transform: uppercase; }
 .be-partner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--divider); }
 .be-partner__name { font-weight: 700; font-size: 14px; }
+.be-partner__actions { display: flex; gap: 8px; flex: none; }
+.be-wa-btn { gap: 7px; }
+.be-wa-btn svg { color: #25d366; }
+.be-wa-btn:hover { border-color: #25d366; }
+.be-wa-btn--compact { padding: 10px 11px; }
 .be-wish-strip { display: flex; flex-direction: column; }
 .be-wish-thumb {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;
@@ -1775,6 +1780,8 @@ select.field {
   border-radius: 8px; color: var(--text); padding: 9px 11px; font-size: 14px;
 }
 .be-profile-fields input[readonly] { color: var(--text-muted); }
+.be-profile-fields__wide { grid-column: 1 / -1; }
+.be-profile-hint { font-size: 12px; margin-top: 5px; }
 .be-toggle-row {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   min-height: 52px; padding: 10px 16px; border-bottom: 1px solid var(--divider);
