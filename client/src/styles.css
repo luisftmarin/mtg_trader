@@ -1748,6 +1748,11 @@ select.field {
 .be-wa-btn svg { color: #25d366; }
 .be-wa-btn:hover { border-color: #25d366; }
 .be-wa-btn--compact { padding: 10px 11px; }
+.be-contact-bar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 16px; padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; font-size: 13px;
+}
 .be-wish-strip { display: flex; flex-direction: column; }
 .be-wish-thumb {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;

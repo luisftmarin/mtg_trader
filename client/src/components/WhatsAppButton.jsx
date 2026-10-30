@@ -9,7 +9,12 @@ export function whatsappUrl(phone, text) {
   return `https://wa.me/${digits}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
 }
 
-export function WhatsAppButton({ friendId, name, compact = false }) {
+export function useHasWhatsApp(friendId) {
+  const { contacts } = useData();
+  return !!contacts?.[String(friendId)];
+}
+
+export function WhatsAppButton({ friendId, name, compact = false, details = "" }) {
   const { identity } = useAuth();
   const { contacts, friends } = useData();
   if (!friendId || String(friendId) === String(identity?.id)) return null;
@@ -17,7 +22,8 @@ export function WhatsAppButton({ friendId, name, compact = false }) {
   if (!phone) return null;
   const self = friends.find((f) => String(f.id) === String(identity.id));
   const me = (self && displayName(self)) || identity.displayName || identity.name;
-  const href = whatsappUrl(phone, `Hi ${name}, it's ${me} from Binder Exchange. Want to trade?`);
+  const intro = `Hi ${name}, it's ${me} from Binder Exchange.`;
+  const href = whatsappUrl(phone, details ? `${intro} ${details}` : `${intro} Want to trade?`);
   return (
     <a
       className={`be-btn be-btn--outline be-wa-btn${compact ? " be-wa-btn--compact" : ""}`}
