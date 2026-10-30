@@ -1,6 +1,7 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CardName } from "../components/CardName.jsx";
+import { RemoveTraderModal } from "../components/RemoveTraderModal.jsx";
 import { ManaDots } from "../components/QtyStepper.jsx";
 import { formatEur, initials, manaDots, matchKey, timeAgo } from "../lib/format.js";
 import { useCardData } from "../components/CardPreview.jsx";
@@ -13,6 +14,7 @@ export function FriendScreen() {
   const { identity } = useAuth();
   const { friends, matches } = useData();
   const navigate = useNavigate();
+  const [removing, setRemoving] = useState(false);
   const friend = friends.find((f) => String(f.id) === String(id));
   const name = friend?.name || "Trader";
   const get = (matches || []).filter((m) => m.owner === name && m.seeker === identity.name);
@@ -56,11 +58,17 @@ export function FriendScreen() {
               Edit binder
             </button>
           )}
+          {identity.isAdmin && friend.id !== identity.id && (
+            <button type="button" className="be-btn be-btn--danger" data-testid="friend-remove" onClick={() => setRemoving(true)}>
+              Remove from roster
+            </button>
+          )}
           <button type="button" className="be-btn be-btn--gold" onClick={() => navigate(`/trades/new?partner=${friend.id}`)}>
             Propose trade
           </button>
         </div>
       </div>
+      {removing && <RemoveTraderModal friend={friend} onClose={() => setRemoving(false)} onRemoved={() => navigate("/")} />}
       <div className="be-friend-cols">
         <section className="be-panel">
           <div className="be-panel__title be-panel__title--green">They have · you want · {uniqueGet.length}</div>
