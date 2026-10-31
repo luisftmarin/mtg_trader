@@ -199,12 +199,29 @@ app.delete("/api/friends/:id", requireAuth, async (req, res) => {
   if (String(req.user.id) !== String(req.params.id) && !req.user.isAdmin) {
     return res.status(403).json({ error: "You can only remove your own account." });
   }
+  const client = await pool.connect();
   try {
-    await pool.query("DELETE FROM friends WHERE id = $1", [req.params.id]);
+    await client.query("BEGIN");
+    // trade_comments.author_id and trade_items.from_id don't cascade from
+    // friends, so their trades (which do cascade to both) must go first.
+    const trades = await client.query(
+      "DELETE FROM trades WHERE proposer_id = $1 OR partner_id = $1 RETURNING id",
+      [req.params.id]
+    );
+    await client.query(
+      `DELETE FROM notifications
+       WHERE payload->>'fromId' = $1::text OR payload->>'tradeId' = ANY($2::text[])`,
+      [req.params.id, trades.rows.map((t) => String(t.id))]
+    );
+    await client.query("DELETE FROM friends WHERE id = $1", [req.params.id]);
+    await client.query("COMMIT");
     res.status(204).end();
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error(err);
     res.status(500).json({ error: "Could not remove trader." });
+  } finally {
+    client.release();
   }
 });
 
