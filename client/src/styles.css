@@ -1577,18 +1577,6 @@ select.field {
   width: 100%;
 }
 .be-roster__item:hover { background: var(--surface-hover); }
-.be-roster__row { position: relative; }
-.be-roster__row .be-roster__item { width: 100%; }
-.be-roster__remove {
-  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
-  width: 24px; height: 24px; display: grid; place-items: center;
-  border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface);
-  color: var(--text-muted); cursor: pointer; opacity: 0; transition: opacity 0.12s;
-}
-.be-roster__row:hover .be-roster__remove,
-.be-roster__remove:focus-visible { opacity: 1; }
-.be-roster__row.can-remove:hover .be-match-pill { visibility: hidden; }
-.be-roster__remove:hover { color: var(--red); border-color: var(--red); }
 .be-danger-note {
   font-size: 13px; line-height: 1.5; color: var(--red);
   background: rgba(217, 115, 106, 0.12); border: 1px solid rgba(217, 115, 106, 0.35);
