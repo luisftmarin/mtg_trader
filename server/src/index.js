@@ -9,6 +9,7 @@ import { warmCache } from "./scryfall.js";
 import { scryfallRouter } from "./routes/scryfall.js";
 import { mountImportRoutes } from "./routes/import.js";
 import { mountTradeRoutes } from "./routes/trades.js";
+import { getProfile, listContacts, updateProfile } from "./profile.js";
 import { getReservedQty, notifyNewMatches } from "./tradeService.js";
 import { canEditFriend, deleteCard, getCards, patchCard, replaceList, upsertCard } from "./lists.js";
 import { matchKey } from "./matchKey.js";
@@ -133,6 +134,41 @@ app.post("/api/friends/:id/reset-password", requireAuth, async (req, res) => {
   }
 });
 
+// The client pings this every minute while the tab is visible; requireAuth
+// already stamps last_seen_at, so there is nothing else to do.
+app.post("/api/heartbeat", requireAuth, (req, res) => {
+  res.status(204).end();
+});
+
+app.get("/api/profile", requireAuth, async (req, res) => {
+  try {
+    res.json(await getProfile(req.user.id));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Could not load profile." });
+  }
+});
+
+app.patch("/api/profile", requireAuth, async (req, res) => {
+  try {
+    res.json(await updateProfile(req.user.id, req.body || {}));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Could not save profile." });
+  }
+});
+
+app.get("/api/contacts", requireAuth, async (req, res) => {
+  try {
+    res.json(await listContacts());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Could not load contacts." });
+  }
+});
+
 // --- Friends ---
 // Viewing the roster and matches doesn't require auth (it's a shared board),
 // but every route below that changes data does.
@@ -141,8 +177,10 @@ app.get("/api/friends", async (req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT f.id, f.name,
+        COALESCE(NULLIF(f.display_name, ''), f.name) AS display_name,
         (f.password_hash IS NOT NULL) AS has_password,
         f.last_seen_at,
+        f.binder_paused,
         COALESCE(c.cnt, 0)::int AS collection_count,
         COALESCE(w.cnt, 0)::int AS wishlist_count
       FROM friends f
@@ -161,12 +199,29 @@ app.delete("/api/friends/:id", requireAuth, async (req, res) => {
   if (String(req.user.id) !== String(req.params.id) && !req.user.isAdmin) {
     return res.status(403).json({ error: "You can only remove your own account." });
   }
+  const client = await pool.connect();
   try {
-    await pool.query("DELETE FROM friends WHERE id = $1", [req.params.id]);
+    await client.query("BEGIN");
+    // trade_comments.author_id and trade_items.from_id don't cascade from
+    // friends, so their trades (which do cascade to both) must go first.
+    const trades = await client.query(
+      "DELETE FROM trades WHERE proposer_id = $1 OR partner_id = $1 RETURNING id",
+      [req.params.id]
+    );
+    await client.query(
+      `DELETE FROM notifications
+       WHERE payload->>'fromId' = $1::text OR payload->>'tradeId' = ANY($2::text[])`,
+      [req.params.id, trades.rows.map((t) => String(t.id))]
+    );
+    await client.query("DELETE FROM friends WHERE id = $1", [req.params.id]);
+    await client.query("COMMIT");
     res.status(204).end();
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error(err);
     res.status(500).json({ error: "Could not remove trader." });
+  } finally {
+    client.release();
   }
 });
 
@@ -174,7 +229,10 @@ app.delete("/api/friends/:id", requireAuth, async (req, res) => {
 
 app.get("/api/friends/:id", async (req, res) => {
   try {
-    const friend = await pool.query("SELECT id, name, last_seen_at, default_lang FROM friends WHERE id = $1", [req.params.id]);
+    const friend = await pool.query(
+      "SELECT id, name, display_name, last_seen_at, default_lang, binder_paused FROM friends WHERE id = $1",
+      [req.params.id]
+    );
     if (!friend.rows.length) return res.status(404).json({ error: "Trader not found." });
     const collection = await getCards("collection_cards", req.params.id);
     const wishlist = await getCards("wishlist_cards", req.params.id);

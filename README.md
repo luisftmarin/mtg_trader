@@ -17,6 +17,9 @@ The live app is at [mtg-trader-five.vercel.app](https://mtg-trader-five.vercel.a
   other matches.
 - **Notifications.** A bell for new proposals, replies, and when a card
   you want lands in a friend’s binder.
+- **Profile.** Display name, an optional WhatsApp number (so friends can
+  message you about a trade with one tap), which alerts you want, and
+  pause-your-binder while you’re away.
 
 Accounts use a name and password. Regular traders only edit their own
 binder; admins can help with anyone’s.

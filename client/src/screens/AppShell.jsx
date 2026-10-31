@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, X } from "lucide-react";
 import { FEATURE_REQUEST_URL } from "../lib/feedback.js";
-import { initials, timeAgo } from "../lib/format.js";
+import { activeLabel, displayName, initials, isOnline, timeAgo } from "../lib/format.js";
 import { matchCountWithMe, useAuth, useData } from "../context.jsx";
 import { api } from "../api.js";
 import { notificationCopy } from "./TradeScreens.jsx";
 import { AddCardsDrawer } from "../components/AddCardsDrawer.jsx";
 import { ImportDrawer } from "../components/ImportDrawer.jsx";
+import { RemoveTraderModal } from "../components/RemoveTraderModal.jsx";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: "◈", end: true },
@@ -35,6 +36,7 @@ export function AppShell() {
   const [drawer, setDrawer] = useState(null);
   const [binderTick, setBinderTick] = useState(0);
   const [tabsHidden, setTabsHidden] = useState(false);
+  const [removing, setRemoving] = useState(null);
   const mainRef = React.useRef(null);
 
   function afterBinderWrite() {
@@ -172,7 +174,7 @@ export function AppShell() {
         </div>
         <button type="button" className="be-userchip" onClick={() => navigate("/profile")}>
           <div className="be-avatar be-avatar--gold">{meIni}</div>
-          {!narrow && <div>{identity.name}</div>}
+          {!narrow && <div>{identity.displayName || identity.name}</div>}
         </button>
       </header>
 
@@ -208,22 +210,46 @@ export function AppShell() {
             </div>
             <div className="be-roster-head">
               Roster · {friends.length}
-              <span className="be-online">{loading ? "…" : `${friends.length} traders`}</span>
+              <span className="be-online">
+                {loading ? "…" : `● ${friends.filter((f) => isOnline(f.last_seen_at)).length} online`}
+              </span>
             </div>
             <div className="be-roster">
               {roster.map((f) => {
                 const n = matchCountWithMe(matches, identity.name, f.name);
+                const canRemove = identity.isAdmin && f.id !== identity.id;
                 return (
-                  <button key={f.id} type="button" className="be-roster__item" onClick={() => navigate(`/friends/${f.id}`)}>
-                    <div className="be-roster__av">{initials(f.name)}</div>
-                    <div className="be-roster__meta">
-                      <div className="be-roster__name">{f.name}</div>
-                      <div className="be-roster__counts">
-                        {f.collection_count} · {f.wishlist_count} wish
+                  <div key={f.id} className={`be-roster__row${canRemove ? " can-remove" : ""}`}>
+                    <button type="button" className="be-roster__item" onClick={() => navigate(`/friends/${f.id}`)}>
+                      <div className="be-roster__av">
+                        {initials(displayName(f))}
+                        {isOnline(f.last_seen_at) && <span className="be-online-dot" aria-label="online" />}
                       </div>
-                    </div>
-                    {n > 0 && <span className="be-match-pill">{n}</span>}
-                  </button>
+                      <div className="be-roster__meta">
+                        <div className="be-roster__name">
+                          {displayName(f)}
+                          {f.id === identity.id ? " (you)" : ""}
+                          {f.binder_paused ? " · paused" : ""}
+                        </div>
+                        <div className="be-roster__counts">
+                          {f.collection_count} · {f.wishlist_count} wish · {activeLabel(f.last_seen_at)}
+                        </div>
+                      </div>
+                      {n > 0 && <span className="be-match-pill">{n}</span>}
+                    </button>
+                    {canRemove && (
+                      <button
+                        type="button"
+                        className="be-roster__remove"
+                        aria-label={`Remove ${f.name} from the roster`}
+                        title={`Remove ${f.name} (admin)`}
+                        onClick={() => setRemoving(f)}
+                        data-testid="roster-remove"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -267,6 +293,15 @@ export function AppShell() {
           target={drawer.tab}
           onClose={() => setDrawer(null)}
           onApplied={() => afterBinderWrite()}
+        />
+      )}
+      {removing && (
+        <RemoveTraderModal
+          friend={removing}
+          onClose={() => setRemoving(null)}
+          onRemoved={() => {
+            if (location.pathname.includes(`/${removing.id}`)) navigate("/");
+          }}
         />
       )}
     </div>

@@ -34,6 +34,11 @@ export function manaDots(colorIdentity) {
   return dots.length ? dots : ["var(--mana-c)"];
 }
 
+export function displayName(friend) {
+  const n = String(friend?.display_name || friend?.displayName || friend?.name || "").trim();
+  return n || String(friend?.name || "");
+}
+
 export function initials(name) {
   return String(name || "")
     .replace(/[^a-zA-Z0-9]/g, "")
@@ -50,4 +55,19 @@ export function timeAgo(value) {
   if (s < 86400) return `${Math.round(s / 3600)} h ago`;
   const d = Math.round(s / 86400);
   return d === 1 ? "yesterday" : `${d} days ago`;
+}
+
+// The client heartbeats every 60 s while the tab is visible, so anyone seen
+// in the last 3 minutes still has the app open.
+const ONLINE_MS = 3 * 60 * 1000;
+
+export function isOnline(lastSeenAt) {
+  const t = new Date(lastSeenAt).getTime();
+  return Number.isFinite(t) && Date.now() - t < ONLINE_MS;
+}
+
+export function activeLabel(lastSeenAt) {
+  if (!lastSeenAt) return "offline";
+  if (isOnline(lastSeenAt)) return "online";
+  return `active ${timeAgo(lastSeenAt)}`;
 }

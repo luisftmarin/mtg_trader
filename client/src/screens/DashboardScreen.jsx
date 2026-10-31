@@ -1,8 +1,9 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { formatEur, matchKey } from "../lib/format.js";
+import { activeLabel, displayName, formatEur, matchKey } from "../lib/format.js";
 import { useAuth, useData } from "../context.jsx";
 import { useCardData } from "../components/CardPreview.jsx";
+import { WhatsAppButton } from "../components/WhatsAppButton.jsx";
 
 export function DashboardScreen() {
   const { identity } = useAuth();
@@ -11,6 +12,7 @@ export function DashboardScreen() {
   const hour = new Date().getHours();
   const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const me = identity.name;
+  const helloName = identity.displayName || identity.name;
   const get = (matches || []).filter((m) => m.seeker === me);
   const give = (matches || []).filter((m) => m.owner === me);
   const names = [...get, ...give].map((m) => m.cardName);
@@ -45,7 +47,7 @@ export function DashboardScreen() {
     <div className="be-page">
       <div className="be-eyebrow be-eyebrow--gold">{today}</div>
       <h1 className="be-h1-lg">
-        {hello}, {identity.name}
+        {hello}, {helloName}
       </h1>
       <div className="be-stats">
         {stats.map((s, i) => (
@@ -62,19 +64,28 @@ export function DashboardScreen() {
         <section className="be-panel">
           <div className="be-panel__title">Best trade partners</div>
           {partners.length === 0 && <div className="be-muted" style={{ padding: 16 }}>Matches show up once two binders overlap.</div>}
-          {partners.map((p) => (
-            <div key={p.name} className="be-partner">
-              <div>
-                <div className="be-partner__name">{p.name}</div>
-                <div className="be-muted">
-                  You get <strong>{p.get}</strong> · you give <strong>{p.give}</strong>
+          {partners.map((p) => {
+            const friend = friends.find((f) => f.name === p.name);
+            const shown = displayName(friend || { name: p.name });
+            return (
+              <div key={p.name} className="be-partner">
+                <div>
+                  <div className="be-partner__name">{shown}</div>
+                  <div className="be-muted">
+                    You get <strong>{p.get}</strong> · you give <strong>{p.give}</strong>
+                    {" · "}
+                    {activeLabel(friend?.last_seen_at)}
+                  </div>
+                </div>
+                <div className="be-partner__actions">
+                  <WhatsAppButton friendId={friend?.id} name={shown} compact />
+                  <button type="button" className="be-btn be-btn--outline" onClick={() => navigate(`/trades/new?partner=${friend?.id || ""}`)}>
+                    Propose
+                  </button>
                 </div>
               </div>
-              <button type="button" className="be-btn be-btn--outline" onClick={() => navigate(`/trades/new?partner=${friends.find((f) => f.name === p.name)?.id || ""}`)}>
-                Propose
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </section>
         <section className="be-panel">
           <div className="be-panel__title">Open trades</div>

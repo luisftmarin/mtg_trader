@@ -91,13 +91,13 @@ export function TradesScreen() {
         </Link>
       </div>
       <div className="be-seg" style={{ marginBottom: 16, maxWidth: 420 }}>
-        <button type="button" className={tab === "matches" ? "is-on" : ""} onClick={() => setTab("matches")}>
+        <button type="button" data-testid="trades-tab-matches" className={tab === "matches" ? "is-on" : ""} onClick={() => setTab("matches")}>
           Matches <span className="be-seg__n">{matches?.length || 0}</span>
         </button>
-        <button type="button" className={tab === "proposals" ? "is-on" : ""} onClick={() => setTab("proposals")}>
+        <button type="button" data-testid="trades-tab-proposals" className={tab === "proposals" ? "is-on" : ""} onClick={() => setTab("proposals")}>
           Proposals <span className="be-seg__n">{openTrades.length}</span>
         </button>
-        <button type="button" className={tab === "history" ? "is-on" : ""} onClick={() => setTab("history")}>
+        <button type="button" data-testid="trades-tab-history" className={tab === "history" ? "is-on" : ""} onClick={() => setTab("history")}>
           History
         </button>
       </div>

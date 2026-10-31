@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { touchLastSeen } from "./profile.js";
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ export function requireAuth(req, res, next) {
   if (!token) return res.status(401).json({ error: "Not signed in." });
   try {
     req.user = jwt.verify(token, JWT_SECRET);
+    touchLastSeen(req.user.id).catch(() => {});
     next();
   } catch {
     res.status(401).json({ error: "Session expired — please sign in again." });

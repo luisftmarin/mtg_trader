@@ -12,9 +12,11 @@ URI and put your database password in place of `[YOUR-PASSWORD]`.
 
 ## 2. Migrations
 
-Run the files in `server/migrations/` **in order** (001 through 006) in the
+Run the files in `server/migrations/` **in order** (001 through 008) in the
 SQL editor or with `psql -f`. That creates traders, binders, the Scryfall
-cache, trades, comments, and notifications.
+cache, trades, comments, notifications, and profile settings (`display_name`,
+`phone`, notification toggles). `007` (match cache) is optional and not
+required for the live matcher.
 
 ## 3. API
 

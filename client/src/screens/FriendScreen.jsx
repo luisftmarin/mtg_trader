@@ -1,8 +1,10 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CardName } from "../components/CardName.jsx";
+import { RemoveTraderModal } from "../components/RemoveTraderModal.jsx";
+import { WhatsAppButton } from "../components/WhatsAppButton.jsx";
 import { ManaDots } from "../components/QtyStepper.jsx";
-import { formatEur, initials, manaDots, matchKey, timeAgo } from "../lib/format.js";
+import { activeLabel, displayName, formatEur, initials, manaDots, matchKey, timeAgo } from "../lib/format.js";
 import { useCardData } from "../components/CardPreview.jsx";
 import { useAuth, useData } from "../context.jsx";
 import { api } from "../api.js";
@@ -13,8 +15,10 @@ export function FriendScreen() {
   const { identity } = useAuth();
   const { friends, matches } = useData();
   const navigate = useNavigate();
+  const [removing, setRemoving] = useState(false);
   const friend = friends.find((f) => String(f.id) === String(id));
   const name = friend?.name || "Trader";
+  const shown = friend ? displayName(friend) : name;
   const get = (matches || []).filter((m) => m.owner === name && m.seeker === identity.name);
   const give = (matches || []).filter((m) => m.owner === identity.name && m.seeker === name);
   const cards = useCardData([...get, ...give].map((m) => m.cardName));
@@ -39,11 +43,11 @@ export function FriendScreen() {
         ← Back
       </button>
       <div className="be-page__head">
-        <div className="be-friend-av">{initials(name)}</div>
+        <div className="be-friend-av">{initials(shown)}</div>
         <div style={{ flex: 1 }}>
-          <h1>{name}</h1>
+          <h1>{shown}</h1>
           <div className="be-mono-sub">
-            {friend.collection_count} cards · {friend.wishlist_count} wishes
+            {friend.collection_count} cards · {friend.wishlist_count} wishes · {activeLabel(friend.last_seen_at)}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -56,11 +60,18 @@ export function FriendScreen() {
               Edit binder
             </button>
           )}
-          <button type="button" className="be-btn be-btn--gold" onClick={() => navigate(`/trades/new?partner=${friend.id}`)}>
+          {identity.isAdmin && friend.id !== identity.id && (
+            <button type="button" className="be-btn be-btn--danger" data-testid="friend-remove" onClick={() => setRemoving(true)}>
+              Remove from roster
+            </button>
+          )}
+          <WhatsAppButton friendId={friend.id} name={shown} />
+          <button type="button" className="be-btn be-btn--gold" data-testid="friend-propose" onClick={() => navigate(`/trades/new?partner=${friend.id}`)}>
             Propose trade
           </button>
         </div>
       </div>
+      {removing && <RemoveTraderModal friend={friend} onClose={() => setRemoving(false)} onRemoved={() => navigate("/")} />}
       <div className="be-friend-cols">
         <section className="be-panel">
           <div className="be-panel__title be-panel__title--green">They have · you want · {uniqueGet.length}</div>
@@ -114,11 +125,11 @@ export function RosterScreen() {
       <section className="be-panel">
         {friends.map((f) => (
           <button key={f.id} type="button" className="be-roster__item be-roster__item--wide" onClick={() => navigate(`/friends/${f.id}`)}>
-            <div className="be-roster__av">{initials(f.name)}</div>
+            <div className="be-roster__av">{initials(displayName(f))}</div>
             <div className="be-roster__meta">
-              <div className="be-roster__name">{f.name}{f.id === identity.id ? " (you)" : ""}</div>
+              <div className="be-roster__name">{displayName(f)}{f.id === identity.id ? " (you)" : ""}</div>
               <div className="be-roster__counts">
-                {f.collection_count} · {f.wishlist_count} wish
+                {f.collection_count} · {f.wishlist_count} wish · {activeLabel(f.last_seen_at)}
               </div>
             </div>
           </button>

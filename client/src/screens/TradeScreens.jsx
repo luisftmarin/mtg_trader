@@ -3,7 +3,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api.js";
 import { CardName } from "../components/CardName.jsx";
 import { useToast } from "../components/ToastHost.jsx";
-import { formatEur, initials, matchKey, timeAgo } from "../lib/format.js";
+import { WhatsAppButton, useHasWhatsApp } from "../components/WhatsAppButton.jsx";
+import { displayName, formatEur, initials, matchKey, timeAgo } from "../lib/format.js";
 import { useCardData } from "../components/CardPreview.jsx";
 import { useAuth, useData } from "../context.jsx";
 
@@ -72,6 +73,7 @@ export function NewTradeScreen() {
 
   const partners = friends.filter((f) => f.id !== identity.id);
   const partner = friends.find((f) => f.id === partnerId);
+  const partnerHasWa = useHasWhatsApp(partner?.id);
 
   const getRows = useMemo(() => {
     if (!partner) return [];
@@ -120,6 +122,20 @@ export function NewTradeScreen() {
   const balance =
     Math.abs(delta) < 0.005 ? "balanced" : delta > 0 ? `you gain ${formatEur(delta)}` : `you give ${formatEur(-delta)} more`;
 
+  const waDetails = (() => {
+    const list = (fromId) =>
+      items
+        .filter((i) => i.fromId === fromId)
+        .map((i) => (i.qty > 1 ? `${i.qty}x ${i.cardName}` : i.cardName))
+        .join(", ");
+    const want = partner ? list(partner.id) : "";
+    const offer = list(identity.id);
+    if (want && offer) return `I'd like ${want} and can give you ${offer}.`;
+    if (want) return `I'd like ${want}. Want to trade?`;
+    if (offer) return `I can give you ${offer}. Want to trade?`;
+    return "";
+  })();
+
   async function send() {
     if (!partnerId || !items.length) return;
     setBusy(true);
@@ -160,6 +176,16 @@ export function NewTradeScreen() {
       {!partner && <div className="be-muted">Select a partner to see overlapping cards.</div>}
       {partner && (
         <>
+          <div className="be-contact-bar" data-testid="new-trade-contact">
+            {partnerHasWa ? (
+              <>
+                <span>Want to talk it through with {displayName(partner)} first?</span>
+                <WhatsAppButton friendId={partner.id} name={displayName(partner)} details={waDetails} />
+              </>
+            ) : (
+              <span className="be-muted">{displayName(partner)} hasn’t added a WhatsApp number yet.</span>
+            )}
+          </div>
           <div className="be-friend-cols">
             <section className="be-panel">
               <div className="be-panel__title be-panel__title--green">You get from {partner.name}</div>
@@ -287,6 +313,10 @@ export function TradeDetailScreen() {
             #{trade.id} · {timeAgo(trade.createdAt)} · proposed by {trade.proposerName}
           </div>
         </div>
+        <WhatsAppButton
+          friendId={trade.viewerIsProposer ? trade.partnerId : trade.proposerId}
+          name={trade.otherName}
+        />
         <StatusBadge status={trade.status} />
       </div>
       {trade.status === "accepted" && (

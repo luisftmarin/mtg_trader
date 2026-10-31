@@ -272,7 +272,7 @@ export function BinderScreen() {
             );
           })}
           {!shown.length && (
-            <div className="be-empty">
+            <div className="be-empty" data-testid="binder-empty">
               <div className="be-empty__title">Nothing here yet</div>
               <div>Add cards by name, or paste a list from Archidekt, Moxfield or a spreadsheet.</div>
               <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab, ownerId)}>
