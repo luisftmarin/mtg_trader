@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { CardName } from "../components/CardName.jsx";
 import { useToast } from "../components/ToastHost.jsx";
 import { WhatsAppButton, useHasWhatsApp } from "../components/WhatsAppButton.jsx";
+import { WishlistsPill } from "../components/WishlistsPill.jsx";
 import { displayName, formatEur, initials, matchKey, timeAgo } from "../lib/format.js";
 import { useCardData } from "../components/CardPreview.jsx";
 import { useAuth, useData } from "../context.jsx";
@@ -88,6 +89,38 @@ export function NewTradeScreen() {
 
   const names = [...getRows, ...giveRows].map((r) => r.cardName);
   const cards = useCardData(names);
+
+  // "<friendId>:<match_key>" -> [{ name, qty }] across that trader's named wishlists.
+  const [wishLists, setWishLists] = useState(() => new Map());
+  useEffect(() => {
+    if (!partner) return undefined;
+    let live = true;
+    Promise.all([api.getFriend(identity.id), api.getFriend(partner.id)])
+      .then((binders) => {
+        if (!live) return;
+        const map = new Map();
+        for (const b of binders) {
+          const nameOf = new Map((b.wishlists || []).map((l) => [l.id, l.name]));
+          for (const c of b.wishlist || []) {
+            const k = `${b.id}:${c.match_key}`;
+            const list = map.get(k) || [];
+            list.push({ name: nameOf.get(c.list_id) || "Wishlist", qty: c.qty });
+            map.set(k, list);
+          }
+        }
+        setWishLists(map);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [identity.id, partner?.id]);
+
+  function listsFor(row, seekerId) {
+    const found = wishLists.get(`${seekerId}:${matchKey(row.cardName)}`);
+    if (found?.length) return found;
+    return (row.lists || []).map((name) => ({ name }));
+  }
 
   function keyFor(row, fromMe) {
     return `${fromMe ? identity.id : partner.id}:${matchKey(row.cardName)}`;
@@ -195,6 +228,7 @@ export function NewTradeScreen() {
                   <label key={row.cardName} className={`be-check-row${on ? " is-on" : ""}`}>
                     <input type="checkbox" checked={on} onChange={() => toggle(row, false)} />
                     <CardName name={row.cardName} />
+                    <WishlistsPill lists={listsFor(row, identity.id)} title="On your wishlists" />
                     <span className="be-muted">×{row.tradeAvailable}</span>
                     <span className="be-list__eur">{formatEur(cards[matchKey(row.cardName)]?.eur)}</span>
                   </label>
@@ -210,7 +244,7 @@ export function NewTradeScreen() {
                   <label key={row.cardName} className={`be-check-row${on ? " is-on" : ""}`}>
                     <input type="checkbox" checked={on} onChange={() => toggle(row, true)} />
                     <CardName name={row.cardName} />
-                    <span className="be-tag is-green">wants</span>
+                    <WishlistsPill lists={listsFor(row, partner.id)} title={`On ${displayName(partner)}’s wishlists`} />
                     <span className="be-muted">×{row.tradeAvailable}</span>
                     <span className="be-list__eur">{formatEur(cards[matchKey(row.cardName)]?.eur)}</span>
                   </label>
