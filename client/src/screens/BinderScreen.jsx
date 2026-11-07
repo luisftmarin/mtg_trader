@@ -369,7 +369,7 @@ export function BinderScreen() {
                 <ManaDots colors={manaDots(meta?.color_identity)} />
                 <div className="be-list__name">
                   <CardName name={r.cardName} />
-                  {tab === "wishlist" && !activeList && wishlists.length > 1 && listOf(r.listId) && (
+                  {tab === "wishlist" && !activeList && listOf(r.listId) && listOf(r.listId).name !== "Wishlist" && (
                     <span className="be-tag be-tag--list">{listOf(r.listId).name}</span>
                   )}
                   {tag && <span className={`be-tag ${tagClass}`}>{tag}</span>}

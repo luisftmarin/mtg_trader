@@ -1,9 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ListChecks } from "lucide-react";
 
-// Small pill that shows, on hover/focus/tap, which named wishlists a card is on.
-// `lists` is [{ name, qty }]; qty is optional.
+export const DEFAULT_LIST = "Wishlist";
+
+// Says which named wishlists a card is on, only when that adds information:
+// nothing for the default list alone, a plain tag for one named list, and a
+// "N lists" pill with a hover/tap popup when the card is on several.
+// `lists` is [{ name, qty }]; qty is optional. Returns null when there's
+// nothing worth showing, so callers can fall back to their own tag.
 export function WishlistsPill({ lists, title }) {
   const ref = useRef(null);
   const [pos, setPos] = useState(null);
@@ -19,7 +23,15 @@ export function WishlistsPill({ lists, title }) {
     };
   }, [pos]);
 
-  if (!lists?.length) return null;
+  if (!hasListInfo(lists)) return null;
+
+  if (lists.length === 1) {
+    return (
+      <span className="be-tag be-tag--list be-wl-tag" data-testid="wishlists-pill" title={`${title}: ${lists[0].name}`}>
+        {lists[0].name}
+      </span>
+    );
+  }
 
   function open() {
     const rect = ref.current?.getBoundingClientRect();
@@ -31,14 +43,12 @@ export function WishlistsPill({ lists, title }) {
     setPos(fitsBelow ? { left, top: below } : { left, bottom: window.innerHeight - rect.top + 6 });
   }
 
-  const label = lists.length === 1 ? lists[0].name : `${lists.length} lists`;
-
   return (
     <>
       <button
         ref={ref}
         type="button"
-        className={`be-owners__pill be-wl-pill${pos ? " is-open" : ""}`}
+        className={`be-tag be-tag--list be-wl-tag be-wl-pill${pos ? " is-open" : ""}`}
         data-testid="wishlists-pill"
         aria-label={`${title}: ${lists.map((l) => l.name).join(", ")}`}
         aria-expanded={!!pos}
@@ -52,8 +62,7 @@ export function WishlistsPill({ lists, title }) {
           open();
         }}
       >
-        <ListChecks size={12} strokeWidth={2.4} />
-        <span>{label}</span>
+        {lists.length} lists
       </button>
       {pos &&
         createPortal(
@@ -70,4 +79,8 @@ export function WishlistsPill({ lists, title }) {
         )}
     </>
   );
+}
+
+export function hasListInfo(lists) {
+  return !!lists?.length && !(lists.length === 1 && lists[0].name === DEFAULT_LIST);
 }

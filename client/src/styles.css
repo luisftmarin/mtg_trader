@@ -868,12 +868,15 @@ select.field {
 .be-owners__row { display: flex; justify-content: space-between; gap: 10px; padding: 5px 8px; border-radius: 6px; font-size: 13px; }
 .be-owners__row.is-prio { color: var(--gold); }
 .be-owners__qty { font-family: var(--font-mono); color: var(--text-muted); }
-.be-wl-pill {
-  display: inline-flex; align-items: center; gap: 4px; max-width: 150px;
-  font-family: inherit; font-weight: 600;
+.be-wl-tag {
+  flex: none; max-width: 110px; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 600; background: none;
 }
-.be-wl-pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.be-wl-pill { cursor: pointer; font-family: inherit; }
+.be-wl-pill:hover,
+.be-wl-pill.is-open { color: var(--text); border-color: var(--text-muted); }
 .be-wl-pop { width: 220px; }
+.be-lists--trade { margin: 0 0 6px; padding: 0 12px; }
 
 .table-wrap {
   max-height: 360px;

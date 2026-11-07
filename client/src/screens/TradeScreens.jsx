@@ -4,7 +4,7 @@ import { api } from "../api.js";
 import { CardName } from "../components/CardName.jsx";
 import { useToast } from "../components/ToastHost.jsx";
 import { WhatsAppButton, useHasWhatsApp } from "../components/WhatsAppButton.jsx";
-import { WishlistsPill } from "../components/WishlistsPill.jsx";
+import { WishlistsPill, hasListInfo } from "../components/WishlistsPill.jsx";
 import { displayName, formatEur, initials, matchKey, timeAgo } from "../lib/format.js";
 import { useCardData } from "../components/CardPreview.jsx";
 import { useAuth, useData } from "../context.jsx";
@@ -92,12 +92,16 @@ export function NewTradeScreen() {
 
   // "<friendId>:<match_key>" -> [{ name, qty }] across that trader's named wishlists.
   const [wishLists, setWishLists] = useState(() => new Map());
+  const [myLists, setMyLists] = useState([]);
+  const [listFilter, setListFilter] = useState(null);
   useEffect(() => {
     if (!partner) return undefined;
     let live = true;
+    setListFilter(null);
     Promise.all([api.getFriend(identity.id), api.getFriend(partner.id)])
       .then((binders) => {
         if (!live) return;
+        setMyLists((binders[0].wishlists || []).map((l) => l.name));
         const map = new Map();
         for (const b of binders) {
           const nameOf = new Map((b.wishlists || []).map((l) => [l.id, l.name]));
@@ -121,6 +125,15 @@ export function NewTradeScreen() {
     if (found?.length) return found;
     return (row.lists || []).map((name) => ({ name }));
   }
+
+  const onList = (row, name) => listsFor(row, identity.id).some((l) => l.name === name);
+  const listChips = myLists
+    .map((name) => ({ name, n: getRows.filter((r) => onList(r, name)).length }))
+    .filter((c) => c.n > 0);
+  const shownGetRows = listFilter ? getRows.filter((r) => onList(r, listFilter)) : getRows;
+  const hiddenPicked = listFilter
+    ? getRows.filter((r) => !onList(r, listFilter) && picked.has(keyFor(r, false))).length
+    : 0;
 
   function keyFor(row, fromMe) {
     return `${fromMe ? identity.id : partner.id}:${matchKey(row.cardName)}`;
@@ -222,13 +235,32 @@ export function NewTradeScreen() {
           <div className="be-friend-cols">
             <section className="be-panel">
               <div className="be-panel__title be-panel__title--green">You get from {partner.name}</div>
-              {getRows.map((row) => {
+              {listChips.length > 1 && (
+                <div className="be-lists be-lists--trade" data-testid="trade-list-filter">
+                  <button type="button" className={`be-chip${listFilter ? "" : " is-on"}`} onClick={() => setListFilter(null)}>
+                    All <span className="be-seg__n">{getRows.length}</span>
+                  </button>
+                  {listChips.map((c) => (
+                    <button
+                      key={c.name}
+                      type="button"
+                      className={`be-chip${listFilter === c.name ? " is-on" : ""}`}
+                      onClick={() => setListFilter(c.name)}
+                    >
+                      {c.name} <span className="be-seg__n">{c.n}</span>
+                    </button>
+                  ))}
+                  {hiddenPicked > 0 && <span className="be-muted">+{hiddenPicked} picked from other lists</span>}
+                </div>
+              )}
+              {shownGetRows.map((row) => {
                 const on = picked.has(keyFor(row, false));
+                const lists = listsFor(row, identity.id);
                 return (
                   <label key={row.cardName} className={`be-check-row${on ? " is-on" : ""}`}>
                     <input type="checkbox" checked={on} onChange={() => toggle(row, false)} />
                     <CardName name={row.cardName} />
-                    <WishlistsPill lists={listsFor(row, identity.id)} title="On your wishlists" />
+                    {!listFilter || lists.length > 1 ? <WishlistsPill lists={lists} title="On your wishlists" /> : null}
                     <span className="be-muted">×{row.tradeAvailable}</span>
                     <span className="be-list__eur">{formatEur(cards[matchKey(row.cardName)]?.eur)}</span>
                   </label>
@@ -244,7 +276,11 @@ export function NewTradeScreen() {
                   <label key={row.cardName} className={`be-check-row${on ? " is-on" : ""}`}>
                     <input type="checkbox" checked={on} onChange={() => toggle(row, true)} />
                     <CardName name={row.cardName} />
-                    <WishlistsPill lists={listsFor(row, partner.id)} title={`On ${displayName(partner)}’s wishlists`} />
+                    {hasListInfo(listsFor(row, partner.id)) ? (
+                      <WishlistsPill lists={listsFor(row, partner.id)} title={`On ${displayName(partner)}’s wishlists`} />
+                    ) : (
+                      <span className="be-tag is-green">wants</span>
+                    )}
                     <span className="be-muted">×{row.tradeAvailable}</span>
                     <span className="be-list__eur">{formatEur(cards[matchKey(row.cardName)]?.eur)}</span>
                   </label>
