@@ -353,6 +353,11 @@ function MatchTable({ rows, peerLabel, peerKey, showBoth, priorityFriendName }) 
               <tr key={i} className={isPrio ? "is-priority" : undefined}>
                 <td>
                   <CardName name={r.cardName} />
+                  {r.lists?.some((n) => n !== "Wishlist") && (
+                    <span className="be-tag be-tag--list" style={{ marginLeft: 8 }} title="Wishlists this card is on">
+                      {r.lists.join(", ")}
+                    </span>
+                  )}
                 </td>
                 {showBoth && (
                   <td>

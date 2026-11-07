@@ -4,10 +4,15 @@ import { formatEur, matchKey } from "../lib/format.js";
 import { useCardData } from "./CardPreview.jsx";
 import { LangSelect, QtyStepper } from "./QtyStepper.jsx";
 import { useToast } from "./ToastHost.jsx";
+import { WishlistPicker } from "./WishlistPicker.jsx";
 
-export function AddCardsDrawer({ friendId, target, onClose, onAdded }) {
+export function AddCardsDrawer({ friendId, target, listId: initialListId, onClose, onAdded }) {
   const toast = useToast();
   const [list, setList] = useState(target === "wishlist" ? "wishlist" : "collection");
+  const [wishList, setWishList] = useState(initialListId ?? null);
+  const [lists, setLists] = useState([]);
+  const wishName = lists.find((l) => l.id === wishList)?.name;
+  const label = list === "wishlist" && wishName ? `“${wishName}”` : list;
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [sugIdx, setSugIdx] = useState(-1);
@@ -69,11 +74,12 @@ export function AddCardsDrawer({ friendId, target, onClose, onAdded }) {
   async function commit() {
     if (!pick) return;
     const add = list === "wishlist" ? api.addWishlistCard : api.addCollectionCard;
+    const listId = list === "wishlist" ? wishList : undefined;
     try {
-      const cardsNow = await add(friendId, { cardName: pick, qty, lang });
-      const entry = { name: pick, qty, lang, target: list };
+      const cardsNow = await add(friendId, { cardName: pick, qty, lang, listId });
+      const entry = { name: pick, qty, lang, target: list, listId, label };
       setRecent((r) => [entry, ...r].slice(0, 4));
-      toast(`${qty}× ${pick} added to ${list}`, "var(--green)", () => undo(entry));
+      toast(`${qty}× ${pick} added to ${label}`, "var(--green)", () => undo(entry));
       setQuery("");
       setPick(null);
       setQty(1);
@@ -87,13 +93,19 @@ export function AddCardsDrawer({ friendId, target, onClose, onAdded }) {
     try {
       const data = await api.getFriend(friendId);
       const key = matchKey(entry.name);
-      const rows = (entry.target === "wishlist" ? data.wishlist : data.collection).map((c) => ({
-        cardName: c.card_name,
-        qty: c.match_key === key ? Math.max(0, c.qty - entry.qty) : c.qty,
-        lang: c.lang,
-      })).filter((c) => c.qty > 0);
-      const replace = entry.target === "wishlist" ? api.replaceWishlist : api.replaceCollection;
-      const cardsNow = await replace(friendId, rows);
+      const wish = entry.target === "wishlist";
+      const listId = wish ? entry.listId ?? data.wishlist.find((c) => c.match_key === key)?.list_id : undefined;
+      const source = wish ? data.wishlist.filter((c) => c.list_id === listId) : data.collection;
+      const rows = source
+        .map((c) => ({
+          cardName: c.card_name,
+          qty: c.match_key === key ? Math.max(0, c.qty - entry.qty) : c.qty,
+          lang: c.lang,
+        }))
+        .filter((c) => c.qty > 0);
+      const cardsNow = wish
+        ? await api.replaceWishlist(friendId, rows, listId)
+        : await api.replaceCollection(friendId, rows);
       setRecent((r) => r.filter((x) => x !== entry));
       onAdded?.(entry.target, cardsNow);
     } catch (err) {
@@ -120,6 +132,9 @@ export function AddCardsDrawer({ friendId, target, onClose, onAdded }) {
               Wishlist
             </button>
           </div>
+          {list === "wishlist" && (
+            <WishlistPicker friendId={friendId} value={wishList} onChange={setWishList} onLists={setLists} />
+          )}
           <div className="be-suggest">
             <label>Card name</label>
             <input
@@ -173,7 +188,7 @@ export function AddCardsDrawer({ friendId, target, onClose, onAdded }) {
                 </div>
               </div>
               <button type="button" className="be-btn be-btn--gold" disabled={!pick} onClick={commit} style={{ opacity: pick ? 1 : 0.5 }}>
-                Add to {list}
+                Add to {label}
               </button>
             </div>
           </div>
@@ -184,7 +199,7 @@ export function AddCardsDrawer({ friendId, target, onClose, onAdded }) {
                 <div key={i} className="be-recent">
                   <span style={{ color: "var(--green)" }}>✓</span>
                   <span style={{ flex: 1 }}>
-                    {r.qty}× {r.name} <span className="be-muted">· {r.lang} · {r.target}</span>
+                    {r.qty}× {r.name} <span className="be-muted">· {r.lang} · {r.label}</span>
                   </span>
                   <button type="button" className="be-text-gold" onClick={() => undo(r)}>
                     Undo

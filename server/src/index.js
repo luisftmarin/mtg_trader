@@ -11,7 +11,18 @@ import { mountImportRoutes } from "./routes/import.js";
 import { mountTradeRoutes } from "./routes/trades.js";
 import { getProfile, listContacts, updateProfile } from "./profile.js";
 import { getReservedQty, notifyNewMatches } from "./tradeService.js";
-import { canEditFriend, deleteCard, getCards, patchCard, replaceList, upsertCard } from "./lists.js";
+import {
+  canEditFriend,
+  createWishlist,
+  deleteCard,
+  deleteWishlist,
+  getCards,
+  listWishlists,
+  patchCard,
+  renameWishlist,
+  replaceList,
+  upsertCard,
+} from "./lists.js";
 import { matchKey } from "./matchKey.js";
 
 dotenv.config();
@@ -236,12 +247,13 @@ app.get("/api/friends/:id", async (req, res) => {
     if (!friend.rows.length) return res.status(404).json({ error: "Trader not found." });
     const collection = await getCards("collection_cards", req.params.id);
     const wishlist = await getCards("wishlist_cards", req.params.id);
+    const wishlists = await listWishlists(req.params.id);
     const reserved = await getReservedQty();
     const collectionWithReserve = collection.map((c) => ({
       ...c,
       reserved: reserved.get(`${req.params.id}:${c.match_key}`) || 0,
     }));
-    res.json({ ...friend.rows[0], collection: collectionWithReserve, wishlist });
+    res.json({ ...friend.rows[0], collection: collectionWithReserve, wishlist, wishlists });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Could not load trader." });
@@ -286,8 +298,42 @@ app.put("/api/friends/:id/collection", requireAuth, async (req, res) => {
 app.put("/api/friends/:id/wishlist", requireAuth, async (req, res) => {
   if (denyEdit(req, res)) return;
   await handleWrite(res, async () => {
-    await replaceList("wishlist_cards", req.params.id, req.body.cards || []);
+    await replaceList("wishlist_cards", req.params.id, req.body.cards || [], { listId: req.body.listId });
     return getCards("wishlist_cards", req.params.id);
+  });
+});
+
+// --- Named wishlists ---
+
+async function handleListWrite(res, fn) {
+  try {
+    const result = await fn();
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Could not save wishlist." });
+  }
+}
+
+app.post("/api/friends/:id/wishlists", requireAuth, async (req, res) => {
+  if (denyEdit(req, res)) return;
+  await handleListWrite(res, () => createWishlist(req.params.id, req.body?.name));
+});
+
+app.patch("/api/friends/:id/wishlists/:listId", requireAuth, async (req, res) => {
+  if (denyEdit(req, res)) return;
+  await handleListWrite(res, async () => {
+    await renameWishlist(req.params.id, req.params.listId, req.body?.name);
+    return listWishlists(req.params.id);
+  });
+});
+
+app.delete("/api/friends/:id/wishlists/:listId", requireAuth, async (req, res) => {
+  if (denyEdit(req, res)) return;
+  await handleListWrite(res, async () => {
+    await deleteWishlist(req.params.id, req.params.listId);
+    return listWishlists(req.params.id);
   });
 });
 
@@ -357,7 +403,13 @@ app.get("/api/matches", async (req, res) => {
     const [friendsRes, collRes, wishRes, reserved] = await Promise.all([
       pool.query("SELECT id, name, COALESCE(binder_paused, false) AS binder_paused FROM friends"),
       pool.query("SELECT friend_id, card_name, match_key, qty FROM collection_cards"),
-      pool.query("SELECT friend_id, card_name, match_key, qty FROM wishlist_cards"),
+      // One row per card even when it sits on several named wishlists.
+      pool.query(
+        `SELECT w.friend_id, MIN(w.card_name) AS card_name, w.match_key, SUM(w.qty)::int AS qty,
+                array_agg(DISTINCT l.name ORDER BY l.name) AS lists
+         FROM wishlist_cards w JOIN wishlists l ON l.id = w.list_id
+         GROUP BY w.friend_id, w.match_key`
+      ),
       getReservedQty(),
     ]);
 

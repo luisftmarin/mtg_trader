@@ -8,8 +8,9 @@ The live app is at [mtg-trader-five.vercel.app](https://mtg-trader-five.vercel.a
 
 ## What it does
 
-- **Roster.** Each friend has a collection and a wishlist, imported from
-  Archidekt, Moxfield, or a CSV, or edited by hand.
+- **Roster.** Each friend has a collection and one or more named wishlists
+  (say, one per deck), imported from Archidekt, Moxfield, or a CSV, or
+  edited by hand. Importing into one wishlist leaves the others alone.
 - **Matches.** The board shows who has a card someone else wants, with
   Cardmarket EUR prices from Scryfall.
 - **Trades.** Propose a swap, accept or decline it, leave comments, and

@@ -17,6 +17,7 @@ function mapRows(list) {
     lang: c.lang || "EN",
     match_key: c.match_key,
     reserved: c.reserved || 0,
+    listId: c.list_id ?? null,
   }));
 }
 
@@ -33,10 +34,13 @@ export function BinderScreen() {
   const [filter, setFilter] = useState("");
   const [collection, setCollection] = useState([]);
   const [wishlist, setWishlist] = useState([]);
+  const [wishlists, setWishlists] = useState([]);
   const [ownerName, setOwnerName] = useState(identity.name);
   const [loading, setLoading] = useState(true);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmDeleteList, setConfirmDeleteList] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [listForm, setListForm] = useState(null);
 
   const ownerId = friendIdParam ? Number(friendIdParam) : identity.id;
   const isAdminEditing = String(ownerId) !== String(identity.id);
@@ -47,6 +51,7 @@ export function BinderScreen() {
     setOwnerName(data.name);
     setCollection(mapRows(data.collection));
     setWishlist(mapRows(data.wishlist));
+    setWishlists(data.wishlists || []);
     setLoading(false);
   }
 
@@ -57,7 +62,11 @@ export function BinderScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerId, forbidden, binderTick]);
 
-  const rows = tab === "wishlist" ? wishlist : collection;
+  const listParam = params.get("list");
+  const activeList = wishlists.find((l) => String(l.id) === listParam) || null;
+  const listOf = (id) => wishlists.find((l) => l.id === id);
+  const listRows = activeList ? wishlist.filter((r) => r.listId === activeList.id) : wishlist;
+  const rows = tab === "wishlist" ? listRows : collection;
   const setRows = tab === "wishlist" ? setWishlist : setCollection;
   const q = filter.trim().toLowerCase();
   const shown = rows.filter((r) => !q || r.cardName.toLowerCase().includes(q));
@@ -112,12 +121,12 @@ export function BinderScreen() {
   async function remove(row) {
     const fn = tab === "wishlist" ? api.deleteWishlistCard : api.deleteCollectionCard;
     const add = tab === "wishlist" ? api.addWishlistCard : api.addCollectionCard;
-    const before = rows;
-    setRows(rows.filter((r) => r.id !== row.id));
+    const before = tab === "wishlist" ? wishlist : collection;
+    setRows(before.filter((r) => r.id !== row.id));
     try {
       await fn(ownerId, row.id);
       toast(`Removed ${row.cardName}`, "var(--red)", async () => {
-        const restored = await add(ownerId, { cardName: row.cardName, qty: row.qty, lang: row.lang });
+        const restored = await add(ownerId, { cardName: row.cardName, qty: row.qty, lang: row.lang, listId: row.listId ?? undefined });
         setRows(mapRows(restored));
         refreshAll();
       });
@@ -129,17 +138,16 @@ export function BinderScreen() {
   }
 
   async function clearList() {
-    const replace = tab === "wishlist" ? api.replaceWishlist : api.replaceCollection;
-    const previous = rows.map((c) => ({ cardName: c.cardName, qty: c.qty, lang: c.lang }));
-    const label = tab === "wishlist" ? "wishlist" : "collection";
+    const wish = tab === "wishlist";
+    const scope = wish ? activeList?.id : undefined;
+    const replace = (cards) => (wish ? api.replaceWishlist(ownerId, cards, scope) : api.replaceCollection(ownerId, cards));
+    const previous = rows.map((c) => ({ cardName: c.cardName, qty: c.qty, lang: c.lang, listId: c.listId ?? undefined }));
     setClearing(true);
     try {
-      await replace(ownerId, []);
-      setRows([]);
+      setRows(mapRows(await replace([])));
       setConfirmClear(false);
-      toast(`Cleared ${label}`, "var(--red)", async () => {
-        const restored = mapRows(await replace(ownerId, previous));
-        setRows(restored);
+      toast(`Cleared ${listLabel}`, "var(--red)", async () => {
+        setRows(mapRows(await replace(previous)));
         refreshAll();
       });
       refreshAll();
@@ -149,8 +157,53 @@ export function BinderScreen() {
     setClearing(false);
   }
 
-  const listLabel = tab === "wishlist" ? "wishlist" : "collection";
-  const whose = isAdminEditing ? `${ownerName}'s ${listLabel}` : `your ${listLabel}`;
+  function pickList(id) {
+    if (id == null) params.delete("list");
+    else params.set("list", String(id));
+    setParams(params, { replace: true });
+  }
+
+  async function saveListForm(e) {
+    e.preventDefault();
+    const name = listForm.name.trim();
+    if (!name) return;
+    try {
+      if (listForm.mode === "new") {
+        const made = await api.createWishlist(ownerId, name);
+        setWishlists((ls) => [...ls, made]);
+        pickList(made.id);
+        toast(`Created “${name}”`, "var(--green)");
+      } else {
+        setWishlists(await api.renameWishlist(ownerId, activeList.id, name));
+        toast(`Renamed to “${name}”`, "var(--green)");
+      }
+      setListForm(null);
+      refreshAll();
+    } catch (err) {
+      toast(err.message, "var(--red)");
+    }
+  }
+
+  async function deleteList() {
+    const gone = activeList;
+    setClearing(true);
+    try {
+      setWishlists(await api.deleteWishlist(ownerId, gone.id));
+      setWishlist((w) => w.filter((r) => r.listId !== gone.id));
+      setConfirmDeleteList(false);
+      pickList(null);
+      toast(`Deleted “${gone.name}”`, "var(--red)");
+      refreshAll();
+    } catch (err) {
+      toast(err.message, "var(--red)");
+    }
+    setClearing(false);
+  }
+
+  const countOf = (id) => wishlist.filter((r) => r.listId === id).reduce((a, c) => a + c.qty, 0);
+  const listLabel = tab === "wishlist" ? (activeList ? `“${activeList.name}”` : "wishlist") : "collection";
+  const whose = activeList ? listLabel : isAdminEditing ? `${ownerName}'s ${listLabel}` : `your ${listLabel}`;
+  const pickedList = tab === "wishlist" ? activeList?.id : undefined;
 
   return (
     <div className="be-page">
@@ -171,7 +224,7 @@ export function BinderScreen() {
             {collCount} in collection · {wishCount} on wishlist
           </div>
         </div>
-        <button type="button" className="be-btn be-btn--outline" onClick={() => openImport(tab, ownerId)}>
+        <button type="button" className="be-btn be-btn--outline" onClick={() => openImport(tab, ownerId, pickedList)}>
           Import list
         </button>
         <button
@@ -182,7 +235,7 @@ export function BinderScreen() {
         >
           Clear {listLabel}
         </button>
-        <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab, ownerId)}>
+        <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab, ownerId, pickedList)}>
           + Add cards
         </button>
       </div>
@@ -208,6 +261,65 @@ export function BinderScreen() {
           </button>
         </div>
       </div>
+      {tab === "wishlist" && !loading && (
+        <div className="be-lists" data-testid="wishlist-lists">
+          <button type="button" className={`be-chip${activeList ? "" : " is-on"}`} onClick={() => pickList(null)}>
+            All <span className="be-seg__n">{wishCount}</span>
+          </button>
+          {wishlists.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              className={`be-chip${activeList?.id === l.id ? " is-on" : ""}`}
+              onClick={() => pickList(l.id)}
+            >
+              {l.name} <span className="be-seg__n">{countOf(l.id)}</span>
+            </button>
+          ))}
+          {listForm ? (
+            <form className="be-lists__form" onSubmit={saveListForm}>
+              <input
+                autoFocus
+                data-testid="wishlist-name-input"
+                maxLength={40}
+                value={listForm.name}
+                placeholder="e.g. Atraxa deck"
+                onChange={(e) => setListForm({ ...listForm, name: e.target.value })}
+                onKeyDown={(e) => e.key === "Escape" && setListForm(null)}
+              />
+              <button type="submit" className="be-btn be-btn--gold" disabled={!listForm.name.trim()}>
+                {listForm.mode === "new" ? "Create" : "Rename"}
+              </button>
+              <button type="button" className="be-btn be-btn--outline" onClick={() => setListForm(null)}>
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="be-chip be-chip--add"
+                data-testid="wishlist-new"
+                onClick={() => setListForm({ mode: "new", name: "" })}
+              >
+                + New list
+              </button>
+              {activeList && (
+                <span className="be-lists__actions">
+                  <button type="button" className="be-text-gold" onClick={() => setListForm({ mode: "rename", name: activeList.name })}>
+                    Rename
+                  </button>
+                  {wishlists.length > 1 && (
+                    <button type="button" className="be-text-red" data-testid="wishlist-delete" onClick={() => setConfirmDeleteList(true)}>
+                      Delete list
+                    </button>
+                  )}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="be-empty">Loading binder…</div>
@@ -257,6 +369,9 @@ export function BinderScreen() {
                 <ManaDots colors={manaDots(meta?.color_identity)} />
                 <div className="be-list__name">
                   <CardName name={r.cardName} />
+                  {tab === "wishlist" && !activeList && wishlists.length > 1 && listOf(r.listId) && (
+                    <span className="be-tag be-tag--list">{listOf(r.listId).name}</span>
+                  )}
                   {tag && <span className={`be-tag ${tagClass}`}>{tag}</span>}
                 </div>
                 <QtyStepper
@@ -275,7 +390,7 @@ export function BinderScreen() {
             <div className="be-empty" data-testid="binder-empty">
               <div className="be-empty__title">Nothing here yet</div>
               <div>Add cards by name, or paste a list from Archidekt, Moxfield or a spreadsheet.</div>
-              <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab, ownerId)}>
+              <button type="button" className="be-btn be-btn--gold" onClick={() => openAdd(tab, ownerId, pickedList)}>
                 + Add cards
               </button>
             </div>
@@ -298,8 +413,9 @@ export function BinderScreen() {
             >
               <h2 id="clear-list-title">Clear {listLabel}?</h2>
               <p id="clear-list-copy">
-                This removes all {tab === "wishlist" ? wishCount : collCount} cards from {whose}. You can undo from the
-                toast right after.
+                This removes all {rows.reduce((a, c) => a + c.qty, 0)} cards from {whose}
+                {tab === "wishlist" && !activeList && wishlists.length > 1 ? `, across all ${wishlists.length} lists` : ""}. You
+                can undo from the toast right after.
               </p>
               <div className="modal__actions">
                 <button type="button" className="be-btn be-btn--outline" onClick={() => setConfirmClear(false)} disabled={clearing}>
@@ -307,6 +423,38 @@ export function BinderScreen() {
                 </button>
                 <button type="button" className="be-btn be-btn--danger" onClick={clearList} disabled={clearing}>
                   {clearing ? "Clearing…" : `Clear ${listLabel}`}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      {confirmDeleteList &&
+        activeList &&
+        createPortal(
+          <div
+            className="modal-backdrop modal-backdrop--top"
+            onClick={() => !clearing && setConfirmDeleteList(false)}
+            role="presentation"
+          >
+            <div
+              className="modal modal--warning"
+              role="alertdialog"
+              aria-labelledby="delete-list-title"
+              aria-describedby="delete-list-copy"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 id="delete-list-title">Delete “{activeList.name}”?</h2>
+              <p id="delete-list-copy">
+                This deletes the list and its {countOf(activeList.id)} cards. Your other wishlists stay as they are. This
+                can’t be undone.
+              </p>
+              <div className="modal__actions">
+                <button type="button" className="be-btn be-btn--outline" onClick={() => setConfirmDeleteList(false)} disabled={clearing}>
+                  Cancel
+                </button>
+                <button type="button" className="be-btn be-btn--danger" onClick={deleteList} disabled={clearing}>
+                  {clearing ? "Deleting…" : "Delete list"}
                 </button>
               </div>
             </div>

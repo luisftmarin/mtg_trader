@@ -240,8 +240,8 @@ export function AppShell() {
         <main className="be-main" ref={mainRef}>
           <Outlet
             context={{
-              openAdd: (tab, friendId) => setDrawer({ kind: "add", tab, friendId: friendId || identity.id }),
-              openImport: (tab, friendId) => setDrawer({ kind: "import", tab, friendId: friendId || identity.id }),
+              openAdd: (tab, friendId, listId) => setDrawer({ kind: "add", tab, friendId: friendId || identity.id, listId }),
+              openImport: (tab, friendId, listId) => setDrawer({ kind: "import", tab, friendId: friendId || identity.id, listId }),
               refreshAll,
               binderTick,
               narrow,
@@ -265,6 +265,7 @@ export function AppShell() {
         <AddCardsDrawer
           friendId={drawer.friendId || identity.id}
           target={drawer.tab}
+          listId={drawer.listId}
           onClose={() => setDrawer(null)}
           onAdded={() => afterBinderWrite()}
         />
@@ -273,6 +274,7 @@ export function AppShell() {
         <ImportDrawer
           friendId={drawer.friendId || identity.id}
           target={drawer.tab}
+          listId={drawer.listId}
           onClose={() => setDrawer(null)}
           onApplied={() => afterBinderWrite()}
         />

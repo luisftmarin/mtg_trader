@@ -1700,6 +1700,19 @@ select.field {
 }
 .be-tag.is-gold { color: var(--gold); border: 1px solid rgba(212,168,67,.4); }
 .be-tag.is-green { color: var(--green); border: 1px solid rgba(79,191,122,.4); }
+.be-tag--list { color: var(--text-muted); border: 1px solid var(--border-strong); }
+.be-lists { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 16px; }
+.be-lists .be-chip { padding: 5px 12px; gap: 0; }
+.be-chip--add { border-style: dashed; color: var(--text-muted); }
+.be-chip--add:hover { color: var(--gold); border-color: var(--gold); }
+.be-lists__actions { display: inline-flex; gap: 12px; margin-left: 4px; }
+.be-lists__form { display: inline-flex; gap: 6px; align-items: center; }
+.be-lists__form input {
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px;
+  color: var(--text); padding: 7px 10px; font-size: 13px; width: 180px;
+}
+.be-lists__form .be-btn { padding: 7px 12px; }
+.be-text-red { background: none; border: 0; color: var(--red); font-weight: 700; font-size: 12px; cursor: pointer; }
 .be-remove {
   width: 28px; height: 28px; border-radius: 6px; border: 0; background: none; color: var(--text-muted); cursor: pointer;
 }

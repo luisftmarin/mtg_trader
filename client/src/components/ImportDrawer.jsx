@@ -1,11 +1,15 @@
 import React, { useRef, useState } from "react";
 import { api } from "../api.js";
 import { useToast } from "./ToastHost.jsx";
+import { NEW_LIST, WishlistPicker } from "./WishlistPicker.jsx";
 
-export function ImportDrawer({ friendId, target, onClose, onApplied }) {
+export function ImportDrawer({ friendId, target, listId: initialListId, onClose, onApplied }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const [list, setList] = useState(target === "wishlist" ? "wishlist" : "collection");
+  const [wishList, setWishList] = useState(initialListId ?? null);
+  const [newName, setNewName] = useState("");
+  const [lists, setLists] = useState([]);
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
   const [fileName, setFileName] = useState("");
@@ -13,8 +17,19 @@ export function ImportDrawer({ friendId, target, onClose, onApplied }) {
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  const isNew = list === "wishlist" && wishList === NEW_LIST;
+  const listName = isNew ? newName.trim() : lists.find((l) => l.id === wishList)?.name || "wishlist";
+  const label = list === "wishlist" ? `“${listName || "new list"}”` : "collection";
+  const needsName = isNew && !newName.trim();
+
+  function wishBody() {
+    if (list !== "wishlist") return {};
+    return isNew ? { newListName: newName.trim() } : { listId: wishList };
+  }
+
   async function previewList(listText, csvFormat = format) {
-    const data = await api.previewImport({ list: listText, target: list, friendId, format: csvFormat });
+    if (needsName) throw new Error("Name the new wishlist first.");
+    const data = await api.previewImport({ list: listText, target: list, friendId, format: csvFormat, ...wishBody() });
     setPreview(data);
   }
 
@@ -68,11 +83,19 @@ export function ImportDrawer({ friendId, target, onClose, onApplied }) {
     if (!preview) return;
     setBusy(true);
     try {
-      const result = await api.applyImport({ rows: preview.rows, target: list, friendId });
+      const result = await api.applyImport({ rows: preview.rows, target: list, friendId, ...wishBody() });
       const n = preview.rows.filter((r) => r.kind !== "unk" && r.kind !== "del").length;
-      toast(`Replaced ${list} with ${n} cards`, "var(--green)", async () => {
-        const replace = list === "wishlist" ? api.replaceWishlist : api.replaceCollection;
-        const cards = await replace(friendId, result.previous);
+      const created = isNew;
+      toast(created ? `Created ${label} with ${n} cards` : `Replaced ${label} with ${n} cards`, "var(--green)", async () => {
+        if (created) {
+          await api.deleteWishlist(friendId, result.listId);
+          onApplied?.(list, null);
+          return;
+        }
+        const cards =
+          list === "wishlist"
+            ? await api.replaceWishlist(friendId, result.previous, result.listId)
+            : await api.replaceCollection(friendId, result.previous);
         onApplied?.(list, cards);
       });
       onApplied?.(list, result.cards);
@@ -122,10 +145,32 @@ export function ImportDrawer({ friendId, target, onClose, onApplied }) {
               Into wishlist
             </button>
           </div>
+          {list === "wishlist" && (
+            <WishlistPicker
+              friendId={friendId}
+              value={wishList}
+              allowNew
+              newName={newName}
+              onNewName={(v) => {
+                setNewName(v);
+                setPreview(null);
+              }}
+              onLists={setLists}
+              onChange={(v) => {
+                setWishList(v);
+                setPreview(null);
+              }}
+            />
+          )}
           <p className="be-copy">
             Paste a decklist, or load a CSV. Pick the program that exported the file so Quantity and Name land in
-            the right columns. This replaces the whole {list === "wishlist" ? "wishlist" : "collection"} — cards not
-            in the file are removed. Use Add cards to append. Nothing is saved until you confirm the preview.
+            the right columns.{" "}
+            {isNew
+              ? "The cards go into a new wishlist; your other lists stay as they are."
+              : list === "wishlist"
+                ? `This replaces the whole ${label} list — cards not in the file are removed from it. Your other wishlists stay as they are.`
+                : "This replaces the whole collection — cards not in the file are removed."}{" "}
+            Use Add cards to append. Nothing is saved until you confirm the preview.
           </p>
           <div className="be-archidekt">
             <label htmlFor="csv-format">CSV export format</label>
@@ -164,7 +209,7 @@ export function ImportDrawer({ friendId, target, onClose, onApplied }) {
             placeholder={"4 Lightning Bolt\n1 Sol Ring (CMM) 464\n2 Rhystic Study"}
           />
           <div className="be-archidekt__row">
-            <button type="button" className="be-btn be-btn--outline" onClick={runPreview} disabled={busy || !text.trim()}>
+            <button type="button" className="be-btn be-btn--outline" onClick={runPreview} disabled={busy || !text.trim() || needsName}>
               {busy ? "Working…" : "Preview changes"}
             </button>
             <input ref={fileRef} type="file" accept=".csv,.txt,text/csv,text/plain" hidden onChange={loadFile} />
@@ -207,7 +252,7 @@ export function ImportDrawer({ friendId, target, onClose, onApplied }) {
                 ))}
               </div>
               <button type="button" className="be-btn be-btn--gold" onClick={apply} disabled={!applyN || busy}>
-                Replace {list} with {applyN} cards
+                {isNew ? `Create ${label} with ${applyN} cards` : `Replace ${label} with ${applyN} cards`}
               </button>
             </>
           )}

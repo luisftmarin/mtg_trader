@@ -30,6 +30,7 @@ export function computeMatches(friendsData) {
             seekerNeeds: w.qty,
             ownerHas: ownerQty,
             tradeAvailable: Math.min(w.qty, ownerQty),
+            ...(w.lists ? { lists: w.lists } : {}),
           });
         }
       });

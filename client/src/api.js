@@ -46,8 +46,12 @@ export const api = {
   getFriend: (id) => request(`/friends/${id}`),
   replaceCollection: (id, cards) =>
     request(`/friends/${id}/collection`, { method: "PUT", body: JSON.stringify({ cards }) }),
-  replaceWishlist: (id, cards) =>
-    request(`/friends/${id}/wishlist`, { method: "PUT", body: JSON.stringify({ cards }) }),
+  replaceWishlist: (id, cards, listId) =>
+    request(`/friends/${id}/wishlist`, { method: "PUT", body: JSON.stringify({ cards, listId }) }),
+  createWishlist: (id, name) => request(`/friends/${id}/wishlists`, { method: "POST", body: JSON.stringify({ name }) }),
+  renameWishlist: (id, listId, name) =>
+    request(`/friends/${id}/wishlists/${listId}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  deleteWishlist: (id, listId) => request(`/friends/${id}/wishlists/${listId}`, { method: "DELETE" }),
   addCollectionCard: (id, card) =>
     request(`/friends/${id}/collection`, { method: "POST", body: JSON.stringify(card) }),
   addWishlistCard: (id, card) =>
